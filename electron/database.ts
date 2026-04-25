@@ -80,19 +80,63 @@ export function setupDatabase(dbPath: string) {
     insertTreatment.run('Extraction (Mild)', 600, 'Basic Procedures');
     insertTreatment.run('Extraction (Moderate)', 1000, 'Basic Procedures');
     insertTreatment.run('Extraction (Severe)', 1500, 'Basic Procedures');
+    insertTreatment.run('Wisdom Tooth (Non Surgical)', 2000, 'Basic Procedures');
+    insertTreatment.run('Wisdom Tooth (Surgical)', 5000, 'Basic Procedures');
+    insertTreatment.run('Minor Surgical Procedure', 1500, 'Basic Procedures');
+    insertTreatment.run('Bone Grafts', 3000, 'Basic Procedures');
     
-    // Endodontic procedures
-    insertTreatment.run('Root Canal', 3000, 'Endodontic Procedures');
-    insertTreatment.run('Root Canal (Laser)', 8000, 'Endodontic Procedures');
+    // Orthodontic Procedures
+    insertTreatment.run('Metal (Basic)', 18000, 'Orthodontic Procedures');
+    insertTreatment.run('Metal (Standard)', 24000, 'Orthodontic Procedures');
+    insertTreatment.run('Metal (Premium)', 45000, 'Orthodontic Procedures');
+    insertTreatment.run('Ceramic (Basic)', 30000, 'Orthodontic Procedures');
+    insertTreatment.run('Ceramic (Standard)', 45000, 'Orthodontic Procedures');
+    insertTreatment.run('Ceramic (Premium)', 60000, 'Orthodontic Procedures');
+    insertTreatment.run('Lingual', 80000, 'Orthodontic Procedures');
+    insertTreatment.run('Aligners (Basic)', 60000, 'Orthodontic Procedures');
+    insertTreatment.run('Aligners (Standard)', 90000, 'Orthodontic Procedures');
+
+    // Endodontic Procedures
+    insertTreatment.run('Root Canal (Basic)', 3000, 'Endodontic Procedures');
+    insertTreatment.run('Root Canal (Standard)', 5000, 'Endodontic Procedures');
+    insertTreatment.run('Root Canal (Lasers)', 8000, 'Endodontic Procedures');
     insertTreatment.run('Pulpectomy (Kids)', 4000, 'Endodontic Procedures');
+    insertTreatment.run('Indirect Pulp Capping', 3000, 'Endodontic Procedures');
     
     // Restorative Procedures
-    insertTreatment.run('Teeth Bleaching', 10000, 'Restorative Procedures');
+    insertTreatment.run('GIC Restoration', 700, 'Restorative Procedures');
+    insertTreatment.run('Composite Restoration', 1000, 'Restorative Procedures');
     insertTreatment.run('Silver Restoration', 1500, 'Restorative Procedures');
+    insertTreatment.run('Teeth Bleaching', 10000, 'Restorative Procedures');
+    insertTreatment.run('Dental Jewelry', 2000, 'Restorative Procedures');
     
     // Periodontal Procedures
-    insertTreatment.run('Root Planning', 4000, 'Periodontal Procedures');
-    insertTreatment.run('Gum Therapy', 1000, 'Periodontal Procedures');
+    insertTreatment.run('Root Planning (Basic)', 2500, 'Periodontal Procedures');
+    insertTreatment.run('Root Planning (Std)', 4000, 'Periodontal Procedures');
+    insertTreatment.run('Gum Therapy (Basic)', 4000, 'Periodontal Procedures');
+    insertTreatment.run('Gum Therapy (Lasers)', 7000, 'Periodontal Procedures');
+    insertTreatment.run('Bone Grafts (Perio)', 3000, 'Periodontal Procedures');
+
+    // Prosthetic Procedures
+    insertTreatment.run('Ceramic With Metal (Tempo)', 3000, 'Prosthetic Procedures');
+    insertTreatment.run('Ceramic With Metal (Basic)', 4000, 'Prosthetic Procedures');
+    insertTreatment.run('Ceramic With Metal (Std)', 5500, 'Prosthetic Procedures');
+    insertTreatment.run('Ceramic With Metal (Prem)', 7000, 'Prosthetic Procedures');
+    insertTreatment.run('Zirconia (Basic)', 9000, 'Prosthetic Procedures');
+    insertTreatment.run('Zirconia (Std)', 13000, 'Prosthetic Procedures');
+    insertTreatment.run('Zirconia (Prem)', 18000, 'Prosthetic Procedures');
+    insertTreatment.run('Dentures (Basic)', 20000, 'Prosthetic Procedures');
+    insertTreatment.run('Dentures (Std)', 30000, 'Prosthetic Procedures');
+    insertTreatment.run('Dentures (Prem)', 45000, 'Prosthetic Procedures');
+    insertTreatment.run('Implant Denture (Acrylic)', 50000, 'Prosthetic Procedures');
+    insertTreatment.run('Implant Denture (Hybrid)', 90000, 'Prosthetic Procedures');
+
+    // Implant Procedures
+    insertTreatment.run('Implant (Redice/Adin)', 18000, 'Implant Procedures');
+    insertTreatment.run('Implant (MIS/Noris)', 28000, 'Implant Procedures');
+    insertTreatment.run('Implant (Noble/Alpha)', 48000, 'Implant Procedures');
+    insertTreatment.run('Full Mouth (Basic)', 300000, 'Implant Procedures');
+    insertTreatment.run('Full Mouth (Premium)', 500000, 'Implant Procedures');
   }
 
   return {

@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState } from 'react';
 import { Transaction } from '../types';
 import { IndianRupee, TrendingUp, Calendar, Printer, Eye } from 'lucide-react';
 

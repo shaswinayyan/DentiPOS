@@ -103,10 +103,6 @@ export default function Billing() {
   
   const finalAmount = subtotal - calculatedDiscount;
 
-  useEffect(() => {
-    // setPaidAmount logic removed as unused
-  }, [finalAmount]);
-
   const handleCheckout = async () => {
     if (cart.length === 0) return alert("Cart is empty");
     setShowPaymentModal(true);

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Settings as SettingsType, CatalogItem } from '../types';
 import { Plus, Trash2, Save, X } from 'lucide-react';
 
@@ -38,8 +38,8 @@ export default function Admin() {
   };
 
   const saveModalItem = async () => {
-    if (!newItemParams.name || newItemParams.price <= 0) {
-      alert("Please enter valid name and price.");
+    if (!newItemParams.name || isNaN(newItemParams.price) || newItemParams.price < 0) {
+      alert("Please enter valid name and a positive price.");
       return;
     }
     if (window.api) {
@@ -192,6 +192,8 @@ export default function Admin() {
                   <option value="Periodontal Procedures">Periodontal Procedures</option>
                   <option value="Cosmetic Procedures">Cosmetic Procedures</option>
                   <option value="Orthodontic Procedures">Orthodontic Procedures</option>
+                  <option value="Prosthetic Procedures">Prosthetic Procedures</option>
+                  <option value="Implant Procedures">Implant Procedures</option>
                   <option value="Other">Other</option>
                 </select>
               </div>

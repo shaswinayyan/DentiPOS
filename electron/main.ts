@@ -1,9 +1,8 @@
-import { app, BrowserWindow, ipcMain, webContents } from 'electron';
+import { app, BrowserWindow, ipcMain } from 'electron';
 import path from 'path';
 import { setupDatabase } from './database';
 
 let mainWindow: BrowserWindow | null = null;
-const isDev = process.env.NODE_ENV !== 'development'; // Can also check via electron-is-dev or simple vite env
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -37,11 +36,10 @@ function createWindow() {
   ipcMain.handle('get-transaction-details', (_, id) => dbService.getTransactionDetails(id));
 
   ipcMain.on('print-receipt', (event) => {
-    // This could also be a separate hidden window or just standard print
     event.sender.print({
       silent: false,
       printBackground: true,
-      deviceName: '' // Shows default print dialog
+      deviceName: ''
     }, (success, errorType) => {
       if (!success) console.log('Print Failed', errorType);
     });

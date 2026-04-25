@@ -6,46 +6,65 @@ This application includes a complete clinic treatment catalog dynamically pre-lo
 
 ---
 
-## 🚀 Easy Development Start (Running from Source)
+## 📦 For Clients — Installing DentiPOS
 
-To download the repository and run it locally for active development:
+**No coding or commands needed!** Just double-click the installer:
 
-### 1. Requirements
-Ensure you have **Node.js** installed on your system. 
-- Download it here: [node.js (LTS version)](https://nodejs.org/)
+1. Get the **`DentiPOS Setup 1.0.0.exe`** file from the developer
+2. Double-click it → if Windows SmartScreen appears, click **"More info"** → **"Run anyway"**
+3. Choose installation folder → click **Install**
+4. Launch DentiPOS from the **Start Menu** or **Desktop shortcut**
 
-### 2. Setup the Application
-1. Clone or download the `POS` repository to your local workspace.
-2. Open your terminal or command prompt inside the project folder.
-3. Install all dependencies and rebuild native SQLite extensions:
-   ```cmd
-   npm install --ignore-scripts
-   npm run postinstall
-   ```
-
-### 3. Launching DentiPOS
-Starting the software during development is simple:
-```cmd
-npm start
-```
-This commands spins up Vite and Electron concurrently, launching your native desktop application. All procedures and treatments are immediately seeded into your local database!
+> **Portable option:** Use `DentiPOS-Portable-1.0.0.exe` instead — just double-click to run, no install needed.
 
 ---
 
-## 📦 Building a `.exe` Installer for Production
+## 🚀 For Developers — Running from Source
 
-If you want to package the application to install it easily across standard Windows stations (`DentiPOS Setup.exe`), we have integrated `electron-builder`.
+### 1. Requirements
+- **Node.js 20 LTS** or newer — [Download here](https://nodejs.org/)
+- **Windows Build Tools** (usually included with Node.js)
 
-### 1. Execute the Build Script
-Compile the React frontend, the Electron backend, and assemble the installer all in one command:
+### 2. Setup
+```cmd
+git clone https://github.com/shaswinayyan/DentiPOS.git
+cd DentiPOS
+npm install
+```
+
+> ⚠️ **Do NOT use `npm install --ignore-scripts`** — Electron requires its postinstall script to download the binary. Always use plain `npm install`.
+
+### 3. Launch (Development Mode)
+```cmd
+npm start
+```
+This spins up Vite + Electron concurrently, launching the desktop application with hot reload.
+
+---
+
+## 📦 Building the .exe Installer
+
+To package the app for distribution to clients:
+
+### 1. Build Everything
 ```cmd
 npm run dist
 ```
 
-### 2. Retrieve your Application
-Wait for the packaging to finish. The process creates both a portable application and an installer. 
-Once complete, open the `release/` folder inside your project:
-- **DentiPOS Setup 1.0.0.exe**: The unified installer application.
-- **DentiPOS 1.0.0.exe**: A portable, directly executable file.
+### 2. Retrieve Your Installer
+The `release/` folder will contain:
 
-Copy these `.exe` files to any standard Windows 10/11 clinic PC, double-click, and enjoy a premium offline billing experience!
+| File | Purpose |
+|------|---------|
+| **DentiPOS Setup 1.0.0.exe** | Full installer (Start Menu shortcuts, uninstaller) |
+| **DentiPOS-Portable-1.0.0.exe** | Portable — just double-click, no installation |
+
+Copy the `.exe` to a USB drive or cloud share and send to the client.
+
+---
+
+## 📁 Data & Backup
+
+- Database location: `%APPDATA%/dentipos/dentipos_v2.sqlite`
+- Data persists across app updates
+- To backup: copy the `.sqlite` file at that path

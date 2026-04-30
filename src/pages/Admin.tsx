@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Settings as SettingsType, CatalogItem } from '../types';
-import { Plus, Trash2, Save, X } from 'lucide-react';
+import { Plus, Trash2, Save, X, Edit } from 'lucide-react';
 
 export default function Admin() {
   const [settings, setSettings] = useState<SettingsType | null>(null);
@@ -10,7 +10,7 @@ export default function Admin() {
   // Modal State
   const [showModal, setShowModal] = useState(false);
   const [modalType, setModalType] = useState<'treatment' | 'medicine'>('treatment');
-  const [newItemParams, setNewItemParams] = useState({ name: '', price: 0, category: 'Basic Procedures' });
+  const [newItemParams, setNewItemParams] = useState<{id?: number, name: string, price: number, category: string}>({ name: '', price: 0, category: 'Basic Procedures' });
 
   useEffect(() => {
     loadData();
@@ -37,6 +37,12 @@ export default function Admin() {
     setShowModal(true);
   };
 
+  const openEditItemModal = (item: CatalogItem, type: 'treatment' | 'medicine') => {
+    setModalType(type);
+    setNewItemParams({ id: item.id, name: item.name, price: item.price, category: item.category || 'Basic Procedures' });
+    setShowModal(true);
+  };
+
   const saveModalItem = async () => {
     if (!newItemParams.name || isNaN(newItemParams.price) || newItemParams.price < 0) {
       alert("Please enter valid name and a positive price.");
@@ -44,6 +50,7 @@ export default function Admin() {
     }
     if (window.api) {
       await window.api.saveCatalogItem({ 
+        id: newItemParams.id,
         name: newItemParams.name, 
         price: newItemParams.price, 
         type: modalType,
@@ -116,8 +123,11 @@ export default function Admin() {
                   <div style={{ fontWeight: 500 }}>{t.name}</div>
                   <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>{t.category || 'Uncategorized'}</div>
                 </div>
-                <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
-                  <span style={{ fontWeight: 600 }}>₹{t.price}</span>
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                  <span style={{ fontWeight: 600, marginRight: '8px' }}>₹{t.price}</span>
+                  <button className="btn-outline" style={{ padding: '4px', borderRadius: '4px', border: 'none', background: 'transparent' }} onClick={() => openEditItemModal(t, 'treatment')}>
+                    <Edit size={16} />
+                  </button>
                   <button className="btn-danger" style={{ padding: '4px', borderRadius: '4px' }} onClick={() => deleteItem(t.id, 'treatment')}>
                     <Trash2 size={16} />
                   </button>
@@ -136,8 +146,11 @@ export default function Admin() {
             {medicines.map(m => (
               <div key={m.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '12px 0', borderBottom: '1px solid var(--border-color)' }}>
                 <span>{m.name}</span>
-                <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
-                  <span style={{ fontWeight: 600 }}>₹{m.price}</span>
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                  <span style={{ fontWeight: 600, marginRight: '8px' }}>₹{m.price}</span>
+                  <button className="btn-outline" style={{ padding: '4px', borderRadius: '4px', border: 'none', background: 'transparent' }} onClick={() => openEditItemModal(m, 'medicine')}>
+                    <Edit size={16} />
+                  </button>
                   <button className="btn-danger" style={{ padding: '4px', borderRadius: '4px' }} onClick={() => deleteItem(m.id, 'medicine')}>
                     <Trash2 size={16} />
                   </button>
@@ -157,7 +170,7 @@ export default function Admin() {
               <X size={20} />
             </button>
             
-            <h2 style={{ marginBottom: '24px' }}>Add New {modalType === 'treatment' ? 'Treatment' : 'Medicine'}</h2>
+            <h2 style={{ marginBottom: '24px' }}>{newItemParams.id ? 'Edit' : 'Add New'} {modalType === 'treatment' ? 'Treatment' : 'Medicine'}</h2>
             
             <div className="input-group">
               <label>Name</label>

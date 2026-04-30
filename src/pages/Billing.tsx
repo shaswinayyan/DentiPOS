@@ -136,8 +136,6 @@ export default function Billing() {
     // Basic browser print approach, electron handles it nicely if triggered.
     if (window.api) {
       window.api.printReceipt();
-    } else {
-      window.print();
     }
   };
 

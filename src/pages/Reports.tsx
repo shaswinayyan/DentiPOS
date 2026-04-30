@@ -33,8 +33,6 @@ export default function Reports() {
   const handlePrint = () => {
     if (window.api) {
       window.api.printReceipt();
-    } else {
-      window.print();
     }
   };
 

@@ -1,4 +1,5 @@
-import { app, BrowserWindow, ipcMain } from 'electron';
+import { app, BrowserWindow, ipcMain, dialog, shell } from 'electron';
+import fs from 'fs';
 import path from 'path';
 import { setupDatabase } from './database';
 
@@ -35,14 +36,26 @@ function createWindow() {
   ipcMain.handle('get-transactions', () => dbService.getTransactions());
   ipcMain.handle('get-transaction-details', (_, id) => dbService.getTransactionDetails(id));
 
-  ipcMain.on('print-receipt', (event) => {
-    event.sender.print({
-      silent: false,
-      printBackground: true,
-      deviceName: ''
-    }, (success, errorType) => {
-      if (!success) console.log('Print Failed', errorType);
-    });
+  ipcMain.on('print-receipt', async (event) => {
+    try {
+      const pdfBuffer = await event.sender.printToPDF({
+        printBackground: true,
+        pageSize: 'A4'
+      });
+      
+      const { filePath } = await dialog.showSaveDialog({
+        title: 'Save Bill PDF',
+        defaultPath: path.join(app.getPath('downloads'), `bill_${Date.now()}.pdf`),
+        filters: [{ name: 'PDFs', extensions: ['pdf'] }]
+      });
+      
+      if (filePath) {
+        fs.writeFileSync(filePath, pdfBuffer);
+        await shell.openPath(filePath);
+      }
+    } catch (error) {
+      console.error('Failed to generate PDF', error);
+    }
   });
 
   if (!app.isPackaged) {

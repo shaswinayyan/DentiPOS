@@ -142,47 +142,54 @@ export default function Billing() {
 
   const handlePrintBillPOS = async () => {
     if (!window.api || !receiptTxn) return;
-    if (typeof window.api.printPosReceipt !== 'function') {
-      alert('Print API not available. Please restart the app once.');
-      return;
-    }
-    const paperWidth = receiptTxn.settings?.pos_paper_width || 58;
-    const width = paperWidth === 50 ? '50x30' : `${paperWidth}mm`;
-    const data: any[] = [
-      { type: 'text', value: receiptTxn.settings?.clinic_name || 'Clinic', style: { textAlign: 'center', fontWeight: '700', fontSize: '16px' } },
-      { type: 'text', value: receiptTxn.settings?.clinic_address || '', style: { textAlign: 'center', fontSize: '11px' } },
-      { type: 'text', value: `Txn ID: #${receiptTxn.id}`, style: { textAlign: 'left', marginTop: '6px' } },
-      { type: 'text', value: `Date: ${new Date(receiptTxn.timestamp).toLocaleString()}`, style: { textAlign: 'left', marginBottom: '6px' } },
-      { type: 'text', value: '--------------------------------', style: { textAlign: 'center' } },
-    ];
+    try {
+      const api = window.api as any;
+      const paperWidth = receiptTxn.settings?.pos_paper_width || 58;
+      const width = paperWidth === 50 ? '50x30' : `${paperWidth}mm`;
+      const data: any[] = [
+        { type: 'text', value: receiptTxn.settings?.clinic_name || 'Clinic', style: { textAlign: 'center', fontWeight: '700', fontSize: '16px' } },
+        { type: 'text', value: receiptTxn.settings?.clinic_address || '', style: { textAlign: 'center', fontSize: '11px' } },
+        { type: 'text', value: `Txn ID: #${receiptTxn.id}`, style: { textAlign: 'left', marginTop: '6px' } },
+        { type: 'text', value: `Date: ${new Date(receiptTxn.timestamp).toLocaleString()}`, style: { textAlign: 'left', marginBottom: '6px' } },
+        { type: 'text', value: '--------------------------------', style: { textAlign: 'center' } },
+      ];
 
-    receiptTxn.cart.forEach((item: any) => {
-      const qtyLabel = item.quantity > 1 ? ` x${item.quantity}` : '';
+      receiptTxn.cart.forEach((item: any) => {
+        const qtyLabel = item.quantity > 1 ? ` x${item.quantity}` : '';
+        data.push(
+          { type: 'text', value: `${item.item_name}${qtyLabel}`, style: { textAlign: 'left', fontSize: '12px' } },
+          { type: 'text', value: `Rs ${item.total_price.toFixed(2)}`, style: { textAlign: 'right', fontSize: '12px' } }
+        );
+      });
+
       data.push(
-        { type: 'text', value: `${item.item_name}${qtyLabel}`, style: { textAlign: 'left', fontSize: '12px' } },
-        { type: 'text', value: `Rs ${item.total_price.toFixed(2)}`, style: { textAlign: 'right', fontSize: '12px' } }
+        { type: 'text', value: '--------------------------------', style: { textAlign: 'center', marginTop: '4px' } },
+        { type: 'text', value: `Subtotal: Rs ${receiptTxn.total_amount.toFixed(2)}`, style: { textAlign: 'right' } }
       );
-    });
+      if (receiptTxn.calculatedDiscount > 0) {
+        data.push({ type: 'text', value: `Discount: -Rs ${receiptTxn.calculatedDiscount.toFixed(2)}`, style: { textAlign: 'right' } });
+      }
+      data.push(
+        { type: 'text', value: `Total: Rs ${receiptTxn.final_amount.toFixed(2)}`, style: { textAlign: 'right', fontWeight: '700', fontSize: '14px' } },
+        { type: 'text', value: 'Thank you for visiting!', style: { textAlign: 'center', marginTop: '8px', marginBottom: '8px' } }
+      );
 
-    data.push(
-      { type: 'text', value: '--------------------------------', style: { textAlign: 'center', marginTop: '4px' } },
-      { type: 'text', value: `Subtotal: Rs ${receiptTxn.total_amount.toFixed(2)}`, style: { textAlign: 'right' } }
-    );
-    if (receiptTxn.calculatedDiscount > 0) {
-      data.push({ type: 'text', value: `Discount: -Rs ${receiptTxn.calculatedDiscount.toFixed(2)}`, style: { textAlign: 'right' } });
-    }
-    data.push(
-      { type: 'text', value: `Total: Rs ${receiptTxn.final_amount.toFixed(2)}`, style: { textAlign: 'right', fontWeight: '700', fontSize: '14px' } },
-      { type: 'text', value: 'Thank you for visiting!', style: { textAlign: 'center', marginTop: '8px', marginBottom: '8px' } }
-    );
+      if (typeof api.printPosReceipt === 'function') {
+        const result = await Promise.resolve(api.printPosReceipt(data, width));
+        if (result && result.success === false) {
+          alert(`POS print failed: ${result.error || 'Unknown error'}`);
+        }
+        return;
+      }
 
-    const result = await window.api.printPosReceipt(data, width);
-    if (!result?.success) {
-      alert(`POS print failed: ${result?.error || 'Unknown error'}`);
-      return;
-    }
-    if (result.mode === 'system-dialog-fallback') {
-      alert(`POS driver fallback used via system dialog${result.printerName ? ` (${result.printerName})` : ''}.`);
+      if (typeof api.printReceiptDirect === 'function') {
+        api.printReceiptDirect();
+        return;
+      }
+
+      alert('No print API found in Billing route.');
+    } catch (error: any) {
+      alert(`POS print failed: ${error?.message || 'Unknown error'}`);
     }
   };
 
@@ -222,29 +229,47 @@ export default function Billing() {
 
   const handlePrintBillSystem = async () => {
     if (!window.api || !receiptTxn) return;
-    if (typeof window.api.printBillDocument !== 'function') {
-      alert('System print API not available. Please restart the app once.');
-      return;
-    }
-    const paperWidth = receiptTxn.settings?.pos_paper_width || 58;
-    const pageSize = paperWidth === 50 ? '50x30' : `${paperWidth}x100`;
-    const result = await window.api.printBillDocument(getBillHtml(), pageSize);
-    if (!result.success) {
-      alert(`System bill print failed: ${result.error || 'Unknown error'}`);
+    try {
+      const api = window.api as any;
+      const paperWidth = receiptTxn.settings?.pos_paper_width || 58;
+      const pageSize = paperWidth === 50 ? '50x30' : `${paperWidth}x100`;
+      if (typeof api.printBillDocument === 'function') {
+        const result = await Promise.resolve(api.printBillDocument(getBillHtml(), pageSize));
+        if (result && result.success === false) {
+          alert(`System bill print failed: ${result.error || 'Unknown error'}`);
+        }
+        return;
+      }
+      if (typeof api.printReceiptDirect === 'function') {
+        api.printReceiptDirect();
+        return;
+      }
+      alert('No system print API found in Billing route.');
+    } catch (error: any) {
+      alert(`System bill print failed: ${error?.message || 'Unknown error'}`);
     }
   };
 
   const handleSaveBillPdf = async () => {
     if (!window.api || !receiptTxn) return;
-    if (typeof window.api.saveBillPdf !== 'function') {
-      alert('PDF API not available. Please restart the app once.');
-      return;
-    }
-    const paperWidth = receiptTxn.settings?.pos_paper_width || 58;
-    const pageSize = paperWidth === 50 ? '50x30' : `${paperWidth}x120`;
-    const result = await window.api.saveBillPdf(getBillHtml(), pageSize);
-    if (!result.success) {
-      alert(`Save PDF failed: ${result.error || 'Unknown error'}`);
+    try {
+      const api = window.api as any;
+      const paperWidth = receiptTxn.settings?.pos_paper_width || 58;
+      const pageSize = paperWidth === 50 ? '50x30' : `${paperWidth}x120`;
+      if (typeof api.saveBillPdf === 'function') {
+        const result = await Promise.resolve(api.saveBillPdf(getBillHtml(), pageSize));
+        if (result && result.success === false) {
+          alert(`Save PDF failed: ${result.error || 'Unknown error'}`);
+        }
+        return;
+      }
+      if (typeof api.printReceipt === 'function') {
+        api.printReceipt();
+        return;
+      }
+      alert('No PDF API found in Billing route.');
+    } catch (error: any) {
+      alert(`Save PDF failed: ${error?.message || 'Unknown error'}`);
     }
   };
 

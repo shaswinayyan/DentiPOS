@@ -102,6 +102,10 @@ export default function Admin() {
                 <input type="checkbox" checked={!!settings.allow_discount} onChange={e => setSettings({...settings, allow_discount: e.target.checked ? 1 : 0})} style={{ width: 'auto' }} />
                 <label>Allow Discounts</label>
               </div>
+              <div className="input-group">
+                <label>POS Printer Left Margin (mm)</label>
+                <input type="number" value={settings.pos_margin_left || 0} onChange={e => setSettings({...settings, pos_margin_left: parseFloat(e.target.value) || 0})} />
+              </div>
               <button className="btn btn-primary" onClick={handleSaveSettings} style={{ marginTop: '16px' }}>Save Settings</button>
             </div>
           )}

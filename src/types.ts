@@ -46,6 +46,7 @@ export interface Settings {
   allow_discount: number; // 0 or 1
   clinic_name: string;
   clinic_address: string;
+  pos_margin_left: number;
 }
 
 // IPC Interface

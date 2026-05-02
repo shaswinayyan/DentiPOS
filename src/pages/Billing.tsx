@@ -197,6 +197,7 @@ export default function Billing() {
               top: 0; 
               width: ${printMode === 'pos' ? '58mm' : '100%'};
               padding: ${printMode === 'pos' ? '0' : '20px'};
+              padding-left: ${printMode === 'pos' ? (receiptTxn.settings?.pos_margin_left || 0) + 'mm' : '20px'};
               font-size: ${printMode === 'pos' ? '12px' : 'inherit'};
             }
             .no-print { display: none !important; }

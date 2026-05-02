@@ -1,10 +1,16 @@
-import { app, BrowserWindow, ipcMain, dialog, shell } from 'electron';
+import { app, BrowserWindow, ipcMain, dialog, shell, type WebContents } from 'electron';
 import fs from 'fs';
 import path from 'path';
 import { setupDatabase } from './database';
 import { PosPrinter } from 'electron-pos-printer';
 
 let mainWindow: BrowserWindow | null = null;
+
+const pickDefaultPrinterName = async (sender: WebContents): Promise<string> => {
+  const printers = await sender.getPrintersAsync();
+  const defaultPrinter = printers.find((p) => p.isDefault) || printers[0];
+  return defaultPrinter?.name || '';
+};
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -91,20 +97,55 @@ function createWindow() {
     }
   });
 
-  ipcMain.on('print-pos-receipt', async (_, data, widthString) => {
+  ipcMain.handle('print-pos-receipt', async (event, data, widthString) => {
     try {
       const width = widthString || '58mm';
-      await PosPrinter.print(data, {
+      const printerName = await pickDefaultPrinterName(event.sender);
+      const printOptions = {
         preview: false,
         margin: '0 0 0 0',
         copies: 1,
-        printerName: '', // leave empty to use default system printer, or user can configure
-        timeOutPerLine: 400,
+        printerName,
+        timeOutPerLine: 300,
         pageSize: width,
         silent: true
-      });
+      };
+
+      try {
+        await PosPrinter.print(data, printOptions);
+        return { success: true, mode: 'pos', printerName };
+      } catch (posError) {
+        // Retry once with 80mm because some Windows drivers reject 58mm custom page sizes.
+        await PosPrinter.print(data, { ...printOptions, pageSize: '80mm' });
+        return { success: true, mode: 'pos-fallback-80mm', printerName };
+      }
     } catch (error) {
       console.error('Failed to print POS receipt via electron-pos-printer', error);
+      try {
+        const printerName = await pickDefaultPrinterName(event.sender);
+        const ok = await new Promise<boolean>((resolve) => {
+          event.sender.print(
+            {
+              silent: false,
+              printBackground: false,
+              margins: { marginType: 'none' },
+              deviceName: printerName || undefined
+            },
+            (success) => resolve(success)
+          );
+        });
+
+        if (ok) {
+          return { success: true, mode: 'system-dialog-fallback', printerName };
+        }
+      } catch (fallbackError) {
+        console.error('Fallback system print also failed', fallbackError);
+      }
+
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown POS print failure'
+      };
     }
   });
 

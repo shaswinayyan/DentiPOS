@@ -25,5 +25,5 @@ contextBridge.exposeInMainWorld('api', {
   getTransactionDetails: (id: number) => ipcRenderer.invoke('get-transaction-details', id),
   printReceipt: () => ipcRenderer.send('print-receipt'),
   printReceiptDirect: () => ipcRenderer.send('print-receipt-direct'),
-  printPosReceipt: (data: any[], width: string) => ipcRenderer.send('print-pos-receipt', data, width),
+  printPosReceipt: (data: any[], width: string) => ipcRenderer.invoke('print-pos-receipt', data, width),
 });

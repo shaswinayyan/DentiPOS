@@ -114,7 +114,7 @@ export interface ElectronAPI {
   }>;
   printReceipt: () => void;
   printReceiptDirect: () => void;
-  printPosReceipt: (data: any[], width: string) => void;
+  printPosReceipt: (data: any[], width: string) => Promise<{ success: boolean; mode?: string; printerName?: string; error?: string }>;
 }
 
 declare global {

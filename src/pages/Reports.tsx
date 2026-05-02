@@ -32,7 +32,7 @@ export default function Reports() {
     }
   };
 
-  const handlePrintBillPOS = () => {
+  const handlePrintBillPOS = async () => {
     if (!window.api || !receiptTxn) return;
     const paperWidth = receiptTxn.settings?.pos_paper_width || 58;
     const width = `${paperWidth}mm`;
@@ -65,7 +65,14 @@ export default function Reports() {
       { type: 'text', value: 'Thank you for visiting!', style: { textAlign: 'center', marginTop: '8px', marginBottom: '8px' } }
     );
 
-    window.api.printPosReceipt(data, width);
+    const result = await window.api.printPosReceipt(data, width);
+    if (!result?.success) {
+      alert(`POS print failed: ${result?.error || 'Unknown error'}`);
+      return;
+    }
+    if (result.mode === 'system-dialog-fallback') {
+      alert(`POS driver fallback used via system dialog${result.printerName ? ` (${result.printerName})` : ''}.`);
+    }
   };
 
   const handlePrintRxA4 = () => {

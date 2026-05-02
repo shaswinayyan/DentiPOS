@@ -144,71 +144,16 @@ export default function Billing() {
     if (!window.api || !receiptTxn) return;
     try {
       const api = window.api as any;
-      const paperWidth = receiptTxn.settings?.pos_paper_width || 58;
-      const width = paperWidth === 50 ? '50x30' : `${paperWidth}mm`;
-      const printMode = receiptTxn.settings?.pos_print_mode || 'raw';
-      if (printMode === 'raw' && typeof api.printBillRaw === 'function') {
-        const rawResult = await Promise.resolve(api.printBillRaw({
-          clinicName: receiptTxn.settings?.clinic_name || 'Clinic',
-          clinicAddress: receiptTxn.settings?.clinic_address || '',
-          id: receiptTxn.id,
-          timestamp: new Date(receiptTxn.timestamp).toLocaleString(),
-          items: receiptTxn.cart.map((item: any) => ({
-            name: item.item_name,
-            qty: item.quantity,
-            total: item.total_price
-          })),
-          subtotal: receiptTxn.total_amount,
-          discount: receiptTxn.calculatedDiscount,
-          total: receiptTxn.final_amount
-        }));
-        if (rawResult?.success) return;
-      }
-
-      const data: any[] = [
-        { type: 'text', value: receiptTxn.settings?.clinic_name || 'Clinic', style: { textAlign: 'center', fontWeight: '700', fontSize: '16px' } },
-        { type: 'text', value: receiptTxn.settings?.clinic_address || '', style: { textAlign: 'center', fontSize: '11px' } },
-        { type: 'text', value: `Txn ID: #${receiptTxn.id}`, style: { textAlign: 'left', marginTop: '6px' } },
-        { type: 'text', value: `Date: ${new Date(receiptTxn.timestamp).toLocaleString()}`, style: { textAlign: 'left', marginBottom: '6px' } },
-        { type: 'text', value: '--------------------------------', style: { textAlign: 'center' } },
-      ];
-
-      receiptTxn.cart.forEach((item: any) => {
-        const qtyLabel = item.quantity > 1 ? ` x${item.quantity}` : '';
-        data.push(
-          { type: 'text', value: `${item.item_name}${qtyLabel}`, style: { textAlign: 'left', fontSize: '12px' } },
-          { type: 'text', value: `Rs ${item.total_price.toFixed(2)}`, style: { textAlign: 'right', fontSize: '12px' } }
-        );
-      });
-
-      data.push(
-        { type: 'text', value: '--------------------------------', style: { textAlign: 'center', marginTop: '4px' } },
-        { type: 'text', value: `Subtotal: Rs ${receiptTxn.total_amount.toFixed(2)}`, style: { textAlign: 'right' } }
-      );
-      if (receiptTxn.calculatedDiscount > 0) {
-        data.push({ type: 'text', value: `Discount: -Rs ${receiptTxn.calculatedDiscount.toFixed(2)}`, style: { textAlign: 'right' } });
-      }
-      data.push(
-        { type: 'text', value: `Total: Rs ${receiptTxn.final_amount.toFixed(2)}`, style: { textAlign: 'right', fontWeight: '700', fontSize: '14px' } },
-        { type: 'text', value: 'Thank you for visiting!', style: { textAlign: 'center', marginTop: '8px', marginBottom: '8px' } }
-      );
-
-      if (typeof api.printPosReceipt === 'function') {
-        const result = await Promise.resolve(api.printPosReceipt(data, width));
-        if (result && result.success === false) {
-          alert(`POS print failed: ${result.error || 'Unknown error'}`);
-        }
+      if (typeof api.printBillDocument !== 'function') {
+        alert('Print API missing. Please restart app.');
         return;
       }
-
-      if (typeof api.printReceiptDirect === 'function') {
-        api.printReceiptDirect();
-        return;
+      const result = await Promise.resolve(api.printBillDocument(getBillHtml(), 'normal'));
+      if (!result?.success) {
+        alert(`Print failed: ${result?.error || 'No response from printer driver'}`);
       }
-
-      alert('No print API found in Billing route.');
     } catch (error: any) {
-      alert(`POS print failed: ${error?.message || 'Unknown error'}`);
+      alert(`Print failed: ${error?.message || 'Unknown error'}`);
     }
   };
 
@@ -223,11 +168,10 @@ export default function Billing() {
 
     return `<!doctype html><html><head><meta charset="utf-8"/><style>
       @media print {
-        @page { size: 44mm 200mm; margin: 0; }
+        @page { margin: 8mm; }
       }
-      @page { size: 44mm 200mm; margin: 0; }
-      body { width: 44mm; font-family: monospace; color:#000; margin:0; padding:0; font-size:11px; -webkit-print-color-adjust: exact; }
-      .receipt-container { width: 44mm; overflow: hidden; padding: 4px; box-sizing: border-box; }
+      body { font-family: monospace; color:#000; margin:0; padding:0; font-size:11px; -webkit-print-color-adjust: exact; }
+      .receipt-container { width: 48mm; max-width: 48mm; overflow: hidden; padding: 4px; box-sizing: border-box; }
       h1 { margin:0 0 4px; text-align:center; font-size:14px; }
       p { margin:2px 0; }
       table { width:100%; border-collapse:collapse; margin-top:6px; }
@@ -254,7 +198,7 @@ export default function Billing() {
     if (!window.api || !receiptTxn) return;
     try {
       const api = window.api as any;
-      const pageSize = '44x200';
+      const pageSize = 'normal';
       if (typeof api.printBillDocument === 'function') {
         const result = await Promise.resolve(api.printBillDocument(getBillHtml(), pageSize));
         if (result && result.success === false) {
@@ -276,7 +220,7 @@ export default function Billing() {
     if (!window.api || !receiptTxn) return;
     try {
       const api = window.api as any;
-      const pageSize = '44x200';
+      const pageSize = 'normal';
       if (typeof api.saveBillPdf === 'function') {
         const result = await Promise.resolve(api.saveBillPdf(getBillHtml(), pageSize));
         if (result && result.success === false) {

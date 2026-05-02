@@ -36,9 +36,9 @@ const parsePosPageSize = (input?: string): string | { width: number; height: num
   return { width: widthPx, height: heightPx };
 };
 
-const createPrintWindow = async (html: string) => {
+const createPrintWindow = async (html: string, show = false) => {
   const win = new BrowserWindow({
-    show: false,
+    show,
     webPreferences: {
       sandbox: true
     }
@@ -228,20 +228,21 @@ function createWindow() {
   ipcMain.handle('print-bill-document', async (event, html: string, pageSize: string) => {
     let printWindow: BrowserWindow | null = null;
     try {
-      printWindow = await createPrintWindow(html);
+      const normalMode = pageSize === 'normal';
+      printWindow = await createPrintWindow(html, normalMode);
       const settings = dbService.getSettings() as any;
       const printerName = settings?.pos_printer_name || await pickDefaultPrinterName(event.sender);
-      const custom = parseCustomSize(pageSize);
+      const custom = normalMode ? null : parseCustomSize(pageSize);
       const success = await new Promise<boolean>((resolve) => {
         printWindow!.webContents.print(
           {
             silent: false,
             printBackground: true,
-            deviceName: printerName || undefined,
+            deviceName: custom ? (printerName || undefined) : undefined,
             pageSize: custom
               ? { width: custom.widthMicrons, height: custom.heightMicrons }
               : undefined,
-            margins: { marginType: 'none' }
+            margins: { marginType: custom ? 'none' : 'default' }
           },
           (ok) => resolve(ok)
         );
@@ -251,7 +252,9 @@ function createWindow() {
       return { success: false, error: error instanceof Error ? error.message : 'Unable to print bill document' };
     } finally {
       if (printWindow && !printWindow.isDestroyed()) {
-        printWindow.close();
+        setTimeout(() => {
+          if (printWindow && !printWindow.isDestroyed()) printWindow.close();
+        }, 500);
       }
     }
   });
@@ -290,13 +293,13 @@ function createWindow() {
     let pdfWindow: BrowserWindow | null = null;
     try {
       pdfWindow = await createPrintWindow(html);
-      const custom = parseCustomSize(pageSize);
+      const custom = pageSize === 'normal' ? null : parseCustomSize(pageSize);
       const pdfBuffer = await pdfWindow.webContents.printToPDF({
         printBackground: true,
         pageSize: custom
           ? { width: custom.widthMicrons, height: custom.heightMicrons }
           : 'A4',
-        margins: { marginType: 'none' },
+        margins: { marginType: custom ? 'none' : 'default' },
         preferCSSPageSize: true
       });
 

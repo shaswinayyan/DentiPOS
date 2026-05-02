@@ -189,6 +189,29 @@ function createWindow() {
       };
     }
   });
+  ipcMain.on('print-pos-receipt', async (event, data, widthString) => {
+    // Backward compatibility for older preload using send()
+    try {
+      const width = parsePosPageSize(widthString || '58mm');
+      const printerName = await pickDefaultPrinterName(event.sender);
+      const printOptions: any = {
+        preview: false,
+        margin: '0 0 0 0',
+        copies: 1,
+        printerName,
+        timeOutPerLine: 300,
+        pageSize: width,
+        silent: true
+      };
+      try {
+        await PosPrinter.print(data, printOptions);
+      } catch {
+        await PosPrinter.print(data, { ...printOptions, pageSize: '80mm' });
+      }
+    } catch (error) {
+      console.error('Legacy print-pos-receipt failed', error);
+    }
+  });
 
   ipcMain.handle('print-bill-document', async (event, html: string, pageSize: string) => {
     let printWindow: BrowserWindow | null = null;
@@ -213,6 +236,35 @@ function createWindow() {
       return { success };
     } catch (error) {
       return { success: false, error: error instanceof Error ? error.message : 'Unable to print bill document' };
+    } finally {
+      if (printWindow && !printWindow.isDestroyed()) {
+        printWindow.close();
+      }
+    }
+  });
+  ipcMain.on('print-bill-document', async (event, html: string, pageSize: string) => {
+    // Backward compatibility fire-and-forget support
+    let printWindow: BrowserWindow | null = null;
+    try {
+      printWindow = await createPrintWindow(html);
+      const printerName = await pickDefaultPrinterName(event.sender);
+      const custom = parseCustomSize(pageSize);
+      await new Promise<boolean>((resolve) => {
+        printWindow!.webContents.print(
+          {
+            silent: false,
+            printBackground: true,
+            deviceName: printerName || undefined,
+            pageSize: custom
+              ? { width: custom.widthMicrons, height: custom.heightMicrons }
+              : undefined,
+            margins: { marginType: 'none' }
+          },
+          (ok) => resolve(ok)
+        );
+      });
+    } catch (error) {
+      console.error('Legacy print-bill-document failed', error);
     } finally {
       if (printWindow && !printWindow.isDestroyed()) {
         printWindow.close();
@@ -247,6 +299,37 @@ function createWindow() {
       return { success: true, filePath };
     } catch (error) {
       return { success: false, error: error instanceof Error ? error.message : 'Unable to save bill PDF' };
+    } finally {
+      if (pdfWindow && !pdfWindow.isDestroyed()) {
+        pdfWindow.close();
+      }
+    }
+  });
+  ipcMain.on('save-bill-pdf', async (_, html: string, pageSize: string) => {
+    // Backward compatibility fire-and-forget support
+    let pdfWindow: BrowserWindow | null = null;
+    try {
+      pdfWindow = await createPrintWindow(html);
+      const custom = parseCustomSize(pageSize);
+      const pdfBuffer = await pdfWindow.webContents.printToPDF({
+        printBackground: true,
+        pageSize: custom
+          ? { width: custom.widthMicrons, height: custom.heightMicrons }
+          : 'A4',
+        margins: { marginType: 'none' },
+        preferCSSPageSize: true
+      });
+      const { filePath } = await dialog.showSaveDialog({
+        title: 'Save Bill PDF',
+        defaultPath: path.join(app.getPath('downloads'), `bill_${Date.now()}.pdf`),
+        filters: [{ name: 'PDFs', extensions: ['pdf'] }]
+      });
+      if (filePath) {
+        fs.writeFileSync(filePath, pdfBuffer);
+        await shell.openPath(filePath);
+      }
+    } catch (error) {
+      console.error('Legacy save-bill-pdf failed', error);
     } finally {
       if (pdfWindow && !pdfWindow.isDestroyed()) {
         pdfWindow.close();

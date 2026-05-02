@@ -142,6 +142,10 @@ export default function Billing() {
 
   const handlePrintBillPOS = async () => {
     if (!window.api || !receiptTxn) return;
+    if (typeof window.api.printPosReceipt !== 'function') {
+      alert('Print API not available. Please restart the app once.');
+      return;
+    }
     const paperWidth = receiptTxn.settings?.pos_paper_width || 58;
     const width = paperWidth === 50 ? '50x30' : `${paperWidth}mm`;
     const data: any[] = [
@@ -218,6 +222,10 @@ export default function Billing() {
 
   const handlePrintBillSystem = async () => {
     if (!window.api || !receiptTxn) return;
+    if (typeof window.api.printBillDocument !== 'function') {
+      alert('System print API not available. Please restart the app once.');
+      return;
+    }
     const paperWidth = receiptTxn.settings?.pos_paper_width || 58;
     const pageSize = paperWidth === 50 ? '50x30' : `${paperWidth}x100`;
     const result = await window.api.printBillDocument(getBillHtml(), pageSize);
@@ -228,6 +236,10 @@ export default function Billing() {
 
   const handleSaveBillPdf = async () => {
     if (!window.api || !receiptTxn) return;
+    if (typeof window.api.saveBillPdf !== 'function') {
+      alert('PDF API not available. Please restart the app once.');
+      return;
+    }
     const paperWidth = receiptTxn.settings?.pos_paper_width || 58;
     const pageSize = paperWidth === 50 ? '50x30' : `${paperWidth}x120`;
     const result = await window.api.saveBillPdf(getBillHtml(), pageSize);

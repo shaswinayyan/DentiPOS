@@ -146,7 +146,8 @@ export default function Billing() {
       const api = window.api as any;
       const paperWidth = receiptTxn.settings?.pos_paper_width || 58;
       const width = paperWidth === 50 ? '50x30' : `${paperWidth}mm`;
-      if (typeof api.printBillRaw === 'function') {
+      const printMode = receiptTxn.settings?.pos_print_mode || 'raw';
+      if (printMode === 'raw' && typeof api.printBillRaw === 'function') {
         const rawResult = await Promise.resolve(api.printBillRaw({
           clinicName: receiptTxn.settings?.clinic_name || 'Clinic',
           clinicAddress: receiptTxn.settings?.clinic_address || '',

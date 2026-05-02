@@ -7,6 +7,7 @@ export default function Admin() {
   const [treatments, setTreatments] = useState<CatalogItem[]>([]);
   const [medicines, setMedicines] = useState<CatalogItem[]>([]);
   const [doctors, setDoctors] = useState<Doctor[]>([]);
+  const [printers, setPrinters] = useState<Array<{ name: string; isDefault?: boolean; status?: number }>>([]);
   
   // Modal State
   const [showModal, setShowModal] = useState(false);
@@ -23,6 +24,7 @@ export default function Admin() {
       setTreatments(await window.api.getCatalog('treatment'));
       setMedicines(await window.api.getCatalog('medicine'));
       setDoctors(await window.api.getDoctors());
+      setPrinters(await window.api.getPrinters());
     }
   };
 
@@ -119,6 +121,31 @@ export default function Admin() {
               <div className="input-group">
                 <label>POS Printer Paper Width (mm) (e.g. 58 for Seznik 2-inch)</label>
                 <input type="number" value={settings.pos_paper_width || 58} onChange={e => setSettings({...settings, pos_paper_width: parseFloat(e.target.value) || 58})} />
+              </div>
+              <div className="input-group">
+                <label>POS Printer Device</label>
+                <select
+                  value={settings.pos_printer_name || ''}
+                  onChange={e => setSettings({ ...settings, pos_printer_name: e.target.value })}
+                >
+                  <option value="">Use System Default</option>
+                  {printers.map((p) => (
+                    <option key={p.name} value={p.name}>
+                      {p.name}{p.isDefault ? ' (Default)' : ''}
+                    </option>
+                  ))}
+                </select>
+                <button className="btn btn-outline" onClick={loadData} style={{ marginTop: '8px' }}>Refresh Printers</button>
+              </div>
+              <div className="input-group">
+                <label>POS Print Mode</label>
+                <select
+                  value={settings.pos_print_mode || 'raw'}
+                  onChange={e => setSettings({ ...settings, pos_print_mode: e.target.value as 'raw' | 'driver' })}
+                >
+                  <option value="raw">RAW ESC/POS (Recommended for Seznik)</option>
+                  <option value="driver">Driver Rendering</option>
+                </select>
               </div>
               <button className="btn btn-primary" onClick={handleSaveSettings} style={{ marginTop: '16px' }}>Save Settings</button>
             </div>

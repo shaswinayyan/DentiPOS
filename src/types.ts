@@ -78,6 +78,8 @@ export interface Settings {
   clinic_address: string;
   pos_margin_left: number;
   pos_paper_width: number;
+  pos_printer_name?: string;
+  pos_print_mode?: 'raw' | 'driver';
 }
 
 // IPC Interface
@@ -105,6 +107,7 @@ export interface ElectronAPI {
   saveDoctor: (doctor: Partial<Doctor>) => Promise<boolean>;
   deleteDoctor: (id: number) => Promise<boolean>;
   getTransactions: () => Promise<Transaction[]>;
+  getPrinters: () => Promise<Array<{ name: string; isDefault?: boolean; status?: number }>>;
   getTransactionDetails: (id: number) => Promise<{
     transaction: Transaction,
     items: TransactionItem[],

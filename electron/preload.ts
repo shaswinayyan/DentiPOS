@@ -23,6 +23,7 @@ contextBridge.exposeInMainWorld('api', {
   deleteDoctor: (id: number) => ipcRenderer.invoke('delete-doctor', id),
   getTransactions: () => ipcRenderer.invoke('get-transactions'),
   getTransactionDetails: (id: number) => ipcRenderer.invoke('get-transaction-details', id),
+  getPrinters: () => ipcRenderer.invoke('get-printers'),
   printReceipt: () => ipcRenderer.send('print-receipt'),
   printReceiptDirect: () => ipcRenderer.send('print-receipt-direct'),
   printPosReceipt: (data: any[], width: string) => ipcRenderer.invoke('print-pos-receipt', data, width),

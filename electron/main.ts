@@ -108,6 +108,10 @@ function createWindow() {
   
   ipcMain.handle('get-transactions', () => dbService.getTransactions());
   ipcMain.handle('get-transaction-details', (_, id) => dbService.getTransactionDetails(id));
+  ipcMain.handle('get-printers', async (event) => {
+    const printers = await event.sender.getPrintersAsync();
+    return printers.map((p) => ({ name: p.name, isDefault: p.isDefault, status: p.status }));
+  });
 
   ipcMain.on('print-receipt', async (event) => {
     try {
@@ -147,7 +151,8 @@ function createWindow() {
   ipcMain.handle('print-pos-receipt', async (event, data, widthString) => {
     try {
       const width = parsePosPageSize(widthString || '58mm');
-      const printerName = await pickDefaultPrinterName(event.sender);
+      const settings = dbService.getSettings() as any;
+      const printerName = settings?.pos_printer_name || await pickDefaultPrinterName(event.sender);
       const printOptions: any = {
         preview: false,
         margin: '0 0 0 0',
@@ -199,7 +204,8 @@ function createWindow() {
     // Backward compatibility for older preload using send()
     try {
       const width = parsePosPageSize(widthString || '58mm');
-      const printerName = await pickDefaultPrinterName(event.sender);
+      const settings = dbService.getSettings() as any;
+      const printerName = settings?.pos_printer_name || await pickDefaultPrinterName(event.sender);
       const printOptions: any = {
         preview: false,
         margin: '0 0 0 0',
@@ -223,7 +229,8 @@ function createWindow() {
     let printWindow: BrowserWindow | null = null;
     try {
       printWindow = await createPrintWindow(html);
-      const printerName = await pickDefaultPrinterName(event.sender);
+      const settings = dbService.getSettings() as any;
+      const printerName = settings?.pos_printer_name || await pickDefaultPrinterName(event.sender);
       const custom = parseCustomSize(pageSize);
       const success = await new Promise<boolean>((resolve) => {
         printWindow!.webContents.print(
@@ -253,7 +260,8 @@ function createWindow() {
     let printWindow: BrowserWindow | null = null;
     try {
       printWindow = await createPrintWindow(html);
-      const printerName = await pickDefaultPrinterName(event.sender);
+      const settings = dbService.getSettings() as any;
+      const printerName = settings?.pos_printer_name || await pickDefaultPrinterName(event.sender);
       const custom = parseCustomSize(pageSize);
       await new Promise<boolean>((resolve) => {
         printWindow!.webContents.print(
@@ -314,7 +322,8 @@ function createWindow() {
 
   ipcMain.handle('print-bill-raw', async (event, payload) => {
     try {
-      const printerName = await pickDefaultPrinterName(event.sender);
+      const settings = dbService.getSettings() as any;
+      const printerName = settings?.pos_printer_name || await pickDefaultPrinterName(event.sender);
       if (!printerName) {
         return { success: false, error: 'No system printer found' };
       }
@@ -400,7 +409,9 @@ function createWindow() {
 
   if (!app.isPackaged) {
     mainWindow.loadURL('http://localhost:5173');
-    mainWindow.webContents.openDevTools();
+    if (process.env.OPEN_DEVTOOLS === '1') {
+      mainWindow.webContents.openDevTools();
+    }
   } else {
     mainWindow.loadFile(path.join(__dirname, '../dist/index.html'));
   }

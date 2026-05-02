@@ -1,7 +1,8 @@
 import Database from 'better-sqlite3';
 
 export function setupDatabase(dbPath: string) {
-  const db = new Database(dbPath, { verbose: console.log });
+  const debugSql = process.env.DB_DEBUG === '1';
+  const db = new Database(dbPath, debugSql ? { verbose: console.log } : {});
   db.pragma('journal_mode = WAL');
 
   // Initialization
@@ -79,7 +80,9 @@ export function setupDatabase(dbPath: string) {
       clinic_name TEXT, 
       clinic_address TEXT,
       pos_margin_left INTEGER DEFAULT 0,
-      pos_paper_width INTEGER DEFAULT 58
+      pos_paper_width INTEGER DEFAULT 58,
+      pos_printer_name TEXT DEFAULT '',
+      pos_print_mode TEXT DEFAULT 'raw'
     );
   `);
 
@@ -88,6 +91,8 @@ export function setupDatabase(dbPath: string) {
     'ALTER TABLE Treatment_Master ADD COLUMN category TEXT DEFAULT "Uncategorized"',
     'ALTER TABLE Settings ADD COLUMN pos_margin_left INTEGER DEFAULT 0',
     'ALTER TABLE Settings ADD COLUMN pos_paper_width INTEGER DEFAULT 58',
+    'ALTER TABLE Settings ADD COLUMN pos_printer_name TEXT DEFAULT ""',
+    'ALTER TABLE Settings ADD COLUMN pos_print_mode TEXT DEFAULT "raw"',
     'ALTER TABLE Transactions ADD COLUMN patient_name TEXT DEFAULT ""',
     'ALTER TABLE Transactions ADD COLUMN patient_phone TEXT DEFAULT ""',
     'ALTER TABLE Transactions ADD COLUMN chief_complaint TEXT DEFAULT ""',
@@ -199,13 +204,14 @@ export function setupDatabase(dbPath: string) {
         UPDATE Settings SET 
           consultation_fee = ?, gst_enabled = ?, allow_price_override = ?, 
           allow_discount = ?, clinic_name = ?, clinic_address = ?, pos_margin_left = ?,
-          pos_paper_width = ?
+          pos_paper_width = ?, pos_printer_name = ?, pos_print_mode = ?
         WHERE id = 1
       `);
       stmt.run(
         settings.consultation_fee, settings.gst_enabled, settings.allow_price_override, 
         settings.allow_discount, settings.clinic_name, settings.clinic_address, 
-        settings.pos_margin_left ?? 0, settings.pos_paper_width ?? 58
+        settings.pos_margin_left ?? 0, settings.pos_paper_width ?? 58,
+        settings.pos_printer_name ?? '', settings.pos_print_mode ?? 'raw'
       );
       return true;
     },

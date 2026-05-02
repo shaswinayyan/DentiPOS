@@ -4,6 +4,9 @@ export interface Transaction {
   total_amount: number;
   discount_amount: number;
   final_amount: number;
+  patient_name?: string;
+  patient_phone?: string;
+  chief_complaint?: string;
 }
 
 export interface TransactionItem {
@@ -28,6 +31,33 @@ export interface Discount {
   transaction_id?: number;
   type: string; // 'flat' | 'percentage'
   value: number;
+}
+
+export interface Prescription {
+  id?: number;
+  transaction_id?: number;
+  clinical_record_id?: number;
+  medication_name: string;
+  dosage_morning: number;
+  dosage_afternoon: number;
+  dosage_night: number;
+  timing: 'Before Food' | 'After Food';
+  duration_days: number;
+}
+
+export interface ClinicalRecord {
+  id?: number;
+  timestamp: string;
+  patient_name: string;
+  patient_phone: string;
+  chief_complaint: string;
+  doctor_name?: string;
+  op_id?: string;
+}
+
+export interface Doctor {
+  id: number;
+  name: string;
 }
 
 export interface CatalogItem {
@@ -63,15 +93,28 @@ export interface ElectronAPI {
     payments: Payment[],
     discounts: Discount[]
   ) => Promise<{success: boolean; transactionId?: number}>;
+  savePrescriptions: (transactionId: number, prescriptions: Prescription[]) => Promise<boolean>;
+  getPrescriptions: (transactionId: number) => Promise<Prescription[]>;
+  saveClinicalRecord: (record: Omit<ClinicalRecord, 'id'>, prescriptions: Prescription[]) => Promise<{success: boolean; clinicalRecordId?: number}>;
+  getClinicalRecords: () => Promise<ClinicalRecord[]>;
+  getClinicalRecordDetails: (id: number) => Promise<{
+    record: ClinicalRecord,
+    prescriptions: Prescription[]
+  }>;
+  getDoctors: () => Promise<Doctor[]>;
+  saveDoctor: (doctor: Partial<Doctor>) => Promise<boolean>;
+  deleteDoctor: (id: number) => Promise<boolean>;
   getTransactions: () => Promise<Transaction[]>;
   getTransactionDetails: (id: number) => Promise<{
     transaction: Transaction,
     items: TransactionItem[],
     payments: Payment[],
-    discounts: Discount[]
+    discounts: Discount[],
+    prescriptions: Prescription[]
   }>;
   printReceipt: () => void;
   printReceiptDirect: () => void;
+  printPosReceipt: (data: any[], width: string) => void;
 }
 
 declare global {

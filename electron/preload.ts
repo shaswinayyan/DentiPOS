@@ -8,8 +8,22 @@ contextBridge.exposeInMainWorld('api', {
   deleteCatalogItem: (id: number, type: string) => ipcRenderer.invoke('delete-catalog-item', id, type),
   saveTransaction: (txn: any, items: any[], payments: any[], discounts: any[]) => 
     ipcRenderer.invoke('save-transaction', txn, items, payments, discounts),
+  savePrescriptions: (transactionId: number, prescriptions: any[]) =>
+    ipcRenderer.invoke('save-prescriptions', transactionId, prescriptions),
+  getPrescriptions: (transactionId: number) =>
+    ipcRenderer.invoke('get-prescriptions', transactionId),
+  saveClinicalRecord: (record: any, prescriptions: any[]) =>
+    ipcRenderer.invoke('save-clinical-record', record, prescriptions),
+  getClinicalRecords: () =>
+    ipcRenderer.invoke('get-clinical-records'),
+  getClinicalRecordDetails: (id: number) =>
+    ipcRenderer.invoke('get-clinical-record-details', id),
+  getDoctors: () => ipcRenderer.invoke('get-doctors'),
+  saveDoctor: (doctor: any) => ipcRenderer.invoke('save-doctor', doctor),
+  deleteDoctor: (id: number) => ipcRenderer.invoke('delete-doctor', id),
   getTransactions: () => ipcRenderer.invoke('get-transactions'),
   getTransactionDetails: (id: number) => ipcRenderer.invoke('get-transaction-details', id),
   printReceipt: () => ipcRenderer.send('print-receipt'),
-  printReceiptDirect: () => ipcRenderer.send('print-receipt-direct')
+  printReceiptDirect: () => ipcRenderer.send('print-receipt-direct'),
+  printPosReceipt: (data: any[], width: string) => ipcRenderer.send('print-pos-receipt', data, width),
 });

@@ -11,7 +11,10 @@ export function setupDatabase(dbPath: string) {
       timestamp TEXT, 
       total_amount REAL, 
       discount_amount REAL, 
-      final_amount REAL
+      final_amount REAL,
+      patient_name TEXT DEFAULT '',
+      patient_phone TEXT DEFAULT '',
+      chief_complaint TEXT DEFAULT ''
     );
     CREATE TABLE IF NOT EXISTS Transaction_Items (
       id INTEGER PRIMARY KEY AUTOINCREMENT, 
@@ -34,6 +37,24 @@ export function setupDatabase(dbPath: string) {
       type TEXT, 
       value REAL
     );
+    CREATE TABLE IF NOT EXISTS Clinical_Records (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      timestamp TEXT,
+      patient_name TEXT DEFAULT '',
+      patient_phone TEXT DEFAULT '',
+      chief_complaint TEXT DEFAULT ''
+    );
+    CREATE TABLE IF NOT EXISTS Prescriptions (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      transaction_id INTEGER,
+      clinical_record_id INTEGER,
+      medication_name TEXT,
+      dosage_morning INTEGER DEFAULT 0,
+      dosage_afternoon INTEGER DEFAULT 0,
+      dosage_night INTEGER DEFAULT 0,
+      timing TEXT DEFAULT 'After Food',
+      duration_days INTEGER DEFAULT 5
+    );
     CREATE TABLE IF NOT EXISTS Treatment_Master (
       id INTEGER PRIMARY KEY AUTOINCREMENT, 
       name TEXT, 
@@ -44,6 +65,10 @@ export function setupDatabase(dbPath: string) {
       id INTEGER PRIMARY KEY AUTOINCREMENT, 
       name TEXT, 
       price REAL
+    );
+    CREATE TABLE IF NOT EXISTS Doctors (
+      id INTEGER PRIMARY KEY AUTOINCREMENT, 
+      name TEXT
     );
     CREATE TABLE IF NOT EXISTS Settings (
       id INTEGER PRIMARY KEY DEFAULT 1, 
@@ -58,25 +83,37 @@ export function setupDatabase(dbPath: string) {
     );
   `);
 
-  try {
-    db.prepare('ALTER TABLE Treatment_Master ADD COLUMN category TEXT DEFAULT "Uncategorized"').run();
-  } catch (e) {
-    // Column already exists
-  }
-  
-  try {
-    db.prepare('ALTER TABLE Settings ADD COLUMN pos_margin_left INTEGER DEFAULT 0').run();
-  } catch (e) {
-    // Column already exists
-  }
+  // Safe schema migrations
+  const migrations = [
+    'ALTER TABLE Treatment_Master ADD COLUMN category TEXT DEFAULT "Uncategorized"',
+    'ALTER TABLE Settings ADD COLUMN pos_margin_left INTEGER DEFAULT 0',
+    'ALTER TABLE Settings ADD COLUMN pos_paper_width INTEGER DEFAULT 58',
+    'ALTER TABLE Transactions ADD COLUMN patient_name TEXT DEFAULT ""',
+    'ALTER TABLE Transactions ADD COLUMN patient_phone TEXT DEFAULT ""',
+    'ALTER TABLE Transactions ADD COLUMN chief_complaint TEXT DEFAULT ""',
+    'ALTER TABLE Prescriptions ADD COLUMN clinical_record_id INTEGER',
+    'ALTER TABLE Clinical_Records ADD COLUMN doctor_name TEXT DEFAULT ""',
+    'ALTER TABLE Clinical_Records ADD COLUMN op_id TEXT DEFAULT ""'
+  ];
 
-  try {
-    db.prepare('ALTER TABLE Settings ADD COLUMN pos_paper_width INTEGER DEFAULT 58').run();
-  } catch (e) {
-    // Column already exists
+  for (const sql of migrations) {
+    try { db.prepare(sql).run(); } catch (_) { /* Column already exists */ }
   }
 
   // Default initial data
+  const checkDoctors = db.prepare(`SELECT COUNT(*) as count FROM Doctors`).get() as { count: number };
+  if (checkDoctors.count === 0) {
+    db.prepare(`INSERT INTO Doctors (name) VALUES ('Dr. Admin')`).run();
+  }
+
+  const checkMedicines = db.prepare(`SELECT COUNT(*) as count FROM Medicine_Master`).get() as { count: number };
+  if (checkMedicines.count === 0) {
+    const insertMedicine = db.prepare(`INSERT INTO Medicine_Master (name, price) VALUES (?, ?)`);
+    insertMedicine.run('Amoxicillin 500mg', 50);
+    insertMedicine.run('Ibuprofen 400mg', 30);
+    insertMedicine.run('Paracetamol 500mg', 20);
+    insertMedicine.run('Metronidazole 400mg', 40);
+  }
   const checkSettings = db.prepare(`SELECT COUNT(*) as count FROM Settings`).get() as { count: number };
   if (checkSettings.count === 0) {
     db.prepare(`
@@ -168,8 +205,23 @@ export function setupDatabase(dbPath: string) {
       stmt.run(
         settings.consultation_fee, settings.gst_enabled, settings.allow_price_override, 
         settings.allow_discount, settings.clinic_name, settings.clinic_address, 
-        settings.pos_margin_left || 0, settings.pos_paper_width || 58
+        settings.pos_margin_left ?? 0, settings.pos_paper_width ?? 58
       );
+      return true;
+    },
+    getDoctors: () => {
+      return db.prepare('SELECT * FROM Doctors').all();
+    },
+    saveDoctor: (doctor: any) => {
+      if (doctor.id) {
+        db.prepare('UPDATE Doctors SET name = ? WHERE id = ?').run(doctor.name, doctor.id);
+      } else {
+        db.prepare('INSERT INTO Doctors (name) VALUES (?)').run(doctor.name);
+      }
+      return true;
+    },
+    deleteDoctor: (id: number) => {
+      db.prepare('DELETE FROM Doctors WHERE id = ?').run(id);
       return true;
     },
     getCatalog: (type: 'treatment' | 'medicine') => {
@@ -200,8 +252,14 @@ export function setupDatabase(dbPath: string) {
     },
     saveTransaction: (txn: any, items: any[], payments: any[], discounts: any[]) => {
       const transactionObj = db.transaction(() => {
-        const stmt = db.prepare(`INSERT INTO Transactions (timestamp, total_amount, discount_amount, final_amount) VALUES (?, ?, ?, ?)`);
-        const info = stmt.run(txn.timestamp, txn.total_amount, txn.discount_amount, txn.final_amount);
+        const stmt = db.prepare(`
+          INSERT INTO Transactions (timestamp, total_amount, discount_amount, final_amount, patient_name, patient_phone, chief_complaint) 
+          VALUES (?, ?, ?, ?, ?, ?, ?)
+        `);
+        const info = stmt.run(
+          txn.timestamp, txn.total_amount, txn.discount_amount, txn.final_amount,
+          txn.patient_name || '', txn.patient_phone || '', txn.chief_complaint || ''
+        );
         const txnId = info.lastInsertRowid;
 
         const itemStmt = db.prepare(`INSERT INTO Transaction_Items (transaction_id, item_name, category, quantity, unit_price, total_price) VALUES (?, ?, ?, ?, ?, ?)`);
@@ -230,6 +288,56 @@ export function setupDatabase(dbPath: string) {
         return { success: false };
       }
     },
+    saveClinicalRecord: (record: any, prescriptions: any[]) => {
+      const dbTxn = db.transaction(() => {
+        const stmt = db.prepare(`
+          INSERT INTO Clinical_Records (timestamp, patient_name, patient_phone, chief_complaint, doctor_name, op_id)
+          VALUES (?, ?, ?, ?, ?, ?)
+        `);
+        const info = stmt.run(record.timestamp, record.patient_name || '', record.patient_phone || '', record.chief_complaint || '', record.doctor_name || '', record.op_id || '');
+        const recordId = info.lastInsertRowid;
+
+        const pStmt = db.prepare(`
+          INSERT INTO Prescriptions (clinical_record_id, medication_name, dosage_morning, dosage_afternoon, dosage_night, timing, duration_days)
+          VALUES (?, ?, ?, ?, ?, ?, ?)
+        `);
+        for (const p of prescriptions) {
+          pStmt.run(recordId, p.medication_name, p.dosage_morning, p.dosage_afternoon, p.dosage_night, p.timing, p.duration_days);
+        }
+
+        return recordId;
+      });
+
+      try {
+        const recordId = dbTxn();
+        return { success: true, clinicalRecordId: recordId };
+      } catch (err) {
+        console.error("DB Error saving clinical record: ", err);
+        return { success: false };
+      }
+    },
+    getClinicalRecords: () => {
+      return db.prepare('SELECT * FROM Clinical_Records ORDER BY timestamp DESC').all();
+    },
+    getClinicalRecordDetails: (id: number) => {
+      const record = db.prepare('SELECT * FROM Clinical_Records WHERE id = ?').get(id);
+      const prescriptions = db.prepare('SELECT * FROM Prescriptions WHERE clinical_record_id = ?').all(id);
+      return { record, prescriptions };
+    },
+    savePrescriptions: (transactionId: number, prescriptions: any[]) => {
+      // Retained for backward compatibility if needed, but the UI won't use it anymore
+      const stmt = db.prepare(`
+        INSERT INTO Prescriptions (transaction_id, medication_name, dosage_morning, dosage_afternoon, dosage_night, timing, duration_days)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+      `);
+      for (const p of prescriptions) {
+        stmt.run(transactionId, p.medication_name, p.dosage_morning, p.dosage_afternoon, p.dosage_night, p.timing, p.duration_days);
+      }
+      return true;
+    },
+    getPrescriptions: (transactionId: number) => {
+      return db.prepare('SELECT * FROM Prescriptions WHERE transaction_id = ?').all(transactionId);
+    },
     getTransactions: () => {
       return db.prepare('SELECT * FROM Transactions ORDER BY timestamp DESC').all();
     },
@@ -238,7 +346,8 @@ export function setupDatabase(dbPath: string) {
       const items = db.prepare('SELECT * FROM Transaction_Items WHERE transaction_id = ?').all(id);
       const payments = db.prepare('SELECT * FROM Payments WHERE transaction_id = ?').all(id);
       const discounts = db.prepare('SELECT * FROM Discounts WHERE transaction_id = ?').all(id);
-      return { transaction, items, payments, discounts };
+      const prescriptions = db.prepare('SELECT * FROM Prescriptions WHERE transaction_id = ?').all(id);
+      return { transaction, items, payments, discounts, prescriptions };
     }
   };
 }

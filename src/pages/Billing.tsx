@@ -12,7 +12,6 @@ export default function Billing() {
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [paymentMode, setPaymentMode] = useState('Cash');
   const [receiptTxn, setReceiptTxn] = useState<any>(null);
-  const [printMode, setPrintMode] = useState<'pdf' | 'pos'>('pdf');
 
   useEffect(() => {
     loadData();
@@ -64,7 +63,7 @@ export default function Billing() {
   };
 
   const addToCart = (item: TransactionItem) => {
-    setCart([...cart, { ...item, id: Date.now() }]); // temporary id for mapping
+    setCart([...cart, { ...item, id: Date.now() }]); 
   };
 
   const updateItemPrice = (index: number, newPrice: number) => {
@@ -122,8 +121,17 @@ export default function Billing() {
 
     const res = await window.api.saveTransaction(txn, cart, payments, discounts);
     
-    if (res.success) {
-      setReceiptTxn({ ...txn, id: res.transactionId, cart, payments, calculatedDiscount, settings });
+    if (res.success && res.transactionId) {
+      setReceiptTxn({ 
+        ...txn, 
+        id: res.transactionId, 
+        cart, 
+        payments, 
+        calculatedDiscount, 
+        settings
+      });
+      
+      // Reset form
       setCart([]);
       setDiscountValue(0);
       setShowPaymentModal(false);
@@ -132,76 +140,117 @@ export default function Billing() {
     }
   };
 
-  const handlePrintPDF = () => {
-    setPrintMode('pdf');
-    setTimeout(() => {
-      if (window.api) window.api.printReceipt();
-    }, 100);
-  };
+  const handlePrintBillPOS = () => {
+    if (!window.api || !receiptTxn) return;
+    const paperWidth = receiptTxn.settings?.pos_paper_width || 58;
+    const width = `${paperWidth}mm`;
+    const data: any[] = [
+      { type: 'text', value: receiptTxn.settings?.clinic_name || 'Clinic', style: { textAlign: 'center', fontWeight: '700', fontSize: '16px' } },
+      { type: 'text', value: receiptTxn.settings?.clinic_address || '', style: { textAlign: 'center', fontSize: '11px' } },
+      { type: 'text', value: `Txn ID: #${receiptTxn.id}`, style: { textAlign: 'left', marginTop: '6px' } },
+      { type: 'text', value: `Date: ${new Date(receiptTxn.timestamp).toLocaleString()}`, style: { textAlign: 'left', marginBottom: '6px' } },
+      { type: 'text', value: '--------------------------------', style: { textAlign: 'center' } },
+    ];
 
-  const handlePrintPOS = () => {
-    setPrintMode('pos');
-    setTimeout(() => {
-      if (window.api) window.api.printReceiptDirect();
-    }, 100);
+    receiptTxn.cart.forEach((item: any) => {
+      const qtyLabel = item.quantity > 1 ? ` x${item.quantity}` : '';
+      data.push(
+        { type: 'text', value: `${item.item_name}${qtyLabel}`, style: { textAlign: 'left', fontSize: '12px' } },
+        { type: 'text', value: `Rs ${item.total_price.toFixed(2)}`, style: { textAlign: 'right', fontSize: '12px' } }
+      );
+    });
+
+    data.push(
+      { type: 'text', value: '--------------------------------', style: { textAlign: 'center', marginTop: '4px' } },
+      { type: 'text', value: `Subtotal: Rs ${receiptTxn.total_amount.toFixed(2)}`, style: { textAlign: 'right' } }
+    );
+    if (receiptTxn.calculatedDiscount > 0) {
+      data.push({ type: 'text', value: `Discount: -Rs ${receiptTxn.calculatedDiscount.toFixed(2)}`, style: { textAlign: 'right' } });
+    }
+    data.push(
+      { type: 'text', value: `Total: Rs ${receiptTxn.final_amount.toFixed(2)}`, style: { textAlign: 'right', fontWeight: '700', fontSize: '14px' } },
+      { type: 'text', value: 'Thank you for visiting!', style: { textAlign: 'center', marginTop: '8px', marginBottom: '8px' } }
+    );
+
+    window.api.printPosReceipt(data, width);
   };
 
   if (receiptTxn) {
+    const leftMargin = receiptTxn.settings?.pos_margin_left || 0;
+    const paperWidth = receiptTxn.settings?.pos_paper_width || 58;
+    
     return (
-      <div style={{ maxWidth: '400px', margin: '0 auto', background: '#fff', color: '#000', padding: '24px', borderRadius: '8px' }} id="receipt-area">
-        <h2 style={{ textAlign: 'center', marginBottom: '8px' }}>{receiptTxn.settings?.clinic_name || 'Clinic'}</h2>
-        <p style={{ textAlign: 'center', fontSize: '0.9rem', marginBottom: '16px' }}>{receiptTxn.settings?.clinic_address}</p>
-        
-        <p><strong>Txn ID:</strong> #{receiptTxn.id}</p>
-        <p style={{ marginBottom: '16px' }}><strong>Date:</strong> {new Date(receiptTxn.timestamp).toLocaleString()}</p>
-        
-        <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '16px' }}>
-          <thead>
-            <tr style={{ borderBottom: '1px dashed #000' }}>
-              <th style={{ textAlign: 'left', padding: '4px 0' }}>Item</th>
-              <th style={{ textAlign: 'right', padding: '4px 0' }}>Amt</th>
-            </tr>
-          </thead>
-          <tbody>
-            {receiptTxn.cart.map((item: any, i: number) => (
-              <tr key={i}>
-                <td style={{ padding: '4px 0' }}>{item.item_name} <small>x{item.quantity}</small></td>
-                <td style={{ textAlign: 'right' }}>₹{item.total_price.toFixed(2)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        
-        <div style={{ borderTop: '1px dashed #000', paddingTop: '8px', textAlign: 'right' }}>
-          <p>Subtotal: ₹{receiptTxn.total_amount.toFixed(2)}</p>
-          {receiptTxn.calculatedDiscount > 0 && <p>Discount: -₹{receiptTxn.calculatedDiscount.toFixed(2)}</p>}
-          <h3 style={{ marginTop: '8px' }}>Total: ₹{receiptTxn.final_amount.toFixed(2)}</h3>
+      <div style={{ padding: '24px', display: 'flex', gap: '24px', flexDirection: 'column', alignItems: 'center' }}>
+        <div className="no-print" style={{ display: 'flex', gap: '16px', marginBottom: '16px' }}>
+           <button className="btn btn-primary" onClick={handlePrintBillPOS}><Printer size={16}/> Print Bill (POS)</button>
+           <button className="btn btn-outline" onClick={() => setReceiptTxn(null)}>New Bill</button>
         </div>
 
-        <p style={{ textAlign: 'center', marginTop: '24px', fontStyle: 'italic' }}>Thank you for visiting!</p>
-        
-        <div style={{ display: 'flex', gap: '16px', marginTop: '24px', justifyContent: 'center' }} className="no-print">
-          <button className="btn btn-primary" onClick={handlePrintPOS}><Printer size={16}/> Print to POS</button>
-          <button className="btn btn-outline" onClick={handlePrintPDF}>Save PDF</button>
-          <button className="btn btn-outline" onClick={() => setReceiptTxn(null)}>New Bill</button>
+        {/* Bill Receipt Area */}
+        <div 
+           id="bill-area"
+           style={{ 
+             background: '#fff', color: '#000', padding: '16px', borderRadius: '8px', 
+             width: '300px', border: '1px solid #ddd'
+           }}
+        >
+          <h2 style={{ textAlign: 'center', marginBottom: '4px', fontSize: '1.2rem' }}>{receiptTxn.settings?.clinic_name || 'Clinic'}</h2>
+          <p style={{ textAlign: 'center', fontSize: '0.85rem', marginBottom: '12px' }}>{receiptTxn.settings?.clinic_address}</p>
+          
+          <div style={{ fontSize: '0.9rem', marginBottom: '12px' }}>
+            <p><strong>Txn ID:</strong> #{receiptTxn.id}</p>
+            <p><strong>Date:</strong> {new Date(receiptTxn.timestamp).toLocaleString()}</p>
+          </div>
+          
+          <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '12px', fontSize: '0.9rem' }}>
+            <thead>
+              <tr style={{ borderBottom: '1px dashed #000' }}>
+                <th style={{ textAlign: 'left', padding: '4px 0' }}>Item</th>
+                <th style={{ textAlign: 'right', padding: '4px 0' }}>Amt</th>
+              </tr>
+            </thead>
+            <tbody>
+              {receiptTxn.cart.map((item: any, i: number) => (
+                <tr key={i}>
+                  <td style={{ padding: '4px 0', wordBreak: 'break-word', whiteSpace: 'normal' }}>
+                    {item.item_name} {item.quantity > 1 ? `x${item.quantity}` : ''}
+                  </td>
+                  <td style={{ textAlign: 'right', verticalAlign: 'top' }}>₹{item.total_price.toFixed(2)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          
+          <div style={{ borderTop: '1px dashed #000', paddingTop: '8px', textAlign: 'right', fontSize: '0.9rem' }}>
+            <p>Subtotal: ₹{receiptTxn.total_amount.toFixed(2)}</p>
+            {receiptTxn.calculatedDiscount > 0 && <p>Discount: -₹{receiptTxn.calculatedDiscount.toFixed(2)}</p>}
+            <h3 style={{ marginTop: '4px', fontSize: '1.1rem' }}>Total: ₹{receiptTxn.final_amount.toFixed(2)}</h3>
+          </div>
+
+          <p style={{ textAlign: 'center', marginTop: '16px', fontSize: '0.85rem', fontStyle: 'italic' }}>Thank you for visiting!</p>
         </div>
 
         <style>{`
           @media print {
             body { background: white !important; color: black !important; margin: 0; padding: 0; }
             body * { visibility: hidden; }
-            #receipt-area, #receipt-area * { visibility: visible; }
-            #receipt-area { 
-              position: absolute !important; 
+            .no-print { display: none !important; }
+            .layout * { display: none !important; }
+            
+            #bill-area, #bill-area * { visibility: visible; display: block; }
+            #bill-area { 
+              position: fixed !important; 
               left: 0 !important; 
               top: 0 !important; 
               margin: 0 !important;
-              width: ${printMode === 'pos' ? (receiptTxn.settings?.pos_paper_width || 58) + 'mm' : '100%'} !important;
-              padding: ${printMode === 'pos' ? '0' : '20px'} !important;
-              padding-left: ${printMode === 'pos' ? (receiptTxn.settings?.pos_margin_left || 0) + 'mm' : '20px'} !important;
-              font-size: ${printMode === 'pos' ? '12px' : 'inherit'};
+              width: ${paperWidth}mm !important;
+              padding: 0 !important;
+              padding-left: ${leftMargin}mm !important;
+              border: none !important;
+              font-size: 12px;
+              box-sizing: border-box;
             }
-            .no-print { display: none !important; }
+            @page { size: ${paperWidth}mm auto; margin: 0; }
           }
         `}</style>
       </div>
@@ -211,7 +260,7 @@ export default function Billing() {
   return (
     <div style={{ display: 'flex', gap: '24px', height: '100%' }}>
       
-      {/* Catalog Section */}
+      {/* Left Column: Catalog */}
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '16px' }}>
         <div style={{ display: 'flex', gap: '12px' }}>
           <button className="btn btn-primary" onClick={addConsultation} style={{ flex: 1 }}>

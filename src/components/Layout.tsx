@@ -32,6 +32,12 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           <NavLink to="/" className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}>
             <Receipt size={20} /> Billing
           </NavLink>
+          <NavLink to="/clinical" className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}>
+            <Receipt size={20} /> Clinical & Rx
+          </NavLink>
+          <NavLink to="/records" className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}>
+            <LayoutDashboard size={20} /> Patient Records
+          </NavLink>
           <NavLink to="/reports" className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}>
             <LayoutDashboard size={20} /> Reports
           </NavLink>

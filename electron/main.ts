@@ -2,6 +2,7 @@ import { app, BrowserWindow, ipcMain, dialog, shell } from 'electron';
 import fs from 'fs';
 import path from 'path';
 import { setupDatabase } from './database';
+import { PosPrinter } from 'electron-pos-printer';
 
 let mainWindow: BrowserWindow | null = null;
 
@@ -33,6 +34,25 @@ function createWindow() {
   ipcMain.handle('save-transaction', (_, txn, items, payments, discounts) => 
     dbService.saveTransaction(txn, items, payments, discounts)
   );
+  ipcMain.handle('save-prescriptions', (_, transactionId, prescriptions) =>
+    dbService.savePrescriptions(transactionId, prescriptions)
+  );
+  ipcMain.handle('get-prescriptions', (_, transactionId) =>
+    dbService.getPrescriptions(transactionId)
+  );
+  ipcMain.handle('save-clinical-record', (_, record, prescriptions) =>
+    dbService.saveClinicalRecord(record, prescriptions)
+  );
+  ipcMain.handle('get-clinical-records', () =>
+    dbService.getClinicalRecords()
+  );
+  ipcMain.handle('get-clinical-record-details', (_, id) =>
+    dbService.getClinicalRecordDetails(id)
+  );
+  ipcMain.handle('get-doctors', () => dbService.getDoctors());
+  ipcMain.handle('save-doctor', (_, doctor) => dbService.saveDoctor(doctor));
+  ipcMain.handle('delete-doctor', (_, id) => dbService.deleteDoctor(id));
+  
   ipcMain.handle('get-transactions', () => dbService.getTransactions());
   ipcMain.handle('get-transaction-details', (_, id) => dbService.getTransactionDetails(id));
 
@@ -62,7 +82,7 @@ function createWindow() {
   ipcMain.on('print-receipt-direct', async (event) => {
     try {
       event.sender.print({
-        silent: false, // Show dialog for POS printer selection
+        silent: false,
         printBackground: false,
         margins: { marginType: 'none' }
       });
@@ -71,12 +91,27 @@ function createWindow() {
     }
   });
 
+  ipcMain.on('print-pos-receipt', async (_, data, widthString) => {
+    try {
+      const width = widthString || '58mm';
+      await PosPrinter.print(data, {
+        preview: false,
+        margin: '0 0 0 0',
+        copies: 1,
+        printerName: '', // leave empty to use default system printer, or user can configure
+        timeOutPerLine: 400,
+        pageSize: width,
+        silent: true
+      });
+    } catch (error) {
+      console.error('Failed to print POS receipt via electron-pos-printer', error);
+    }
+  });
+
   if (!app.isPackaged) {
-    // Dev environment
     mainWindow.loadURL('http://localhost:5173');
     mainWindow.webContents.openDevTools();
   } else {
-    // Prod environment
     mainWindow.loadFile(path.join(__dirname, '../dist/index.html'));
   }
 

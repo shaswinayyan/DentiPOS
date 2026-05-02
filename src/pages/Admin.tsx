@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
-import { Settings as SettingsType, CatalogItem } from '../types';
-import { Plus, Trash2, Save, X, Edit } from 'lucide-react';
+import { Settings as SettingsType, CatalogItem, Doctor } from '../types';
+import { Plus, Trash2, Save, X, Edit, UserPlus } from 'lucide-react';
 
 export default function Admin() {
   const [settings, setSettings] = useState<SettingsType | null>(null);
   const [treatments, setTreatments] = useState<CatalogItem[]>([]);
   const [medicines, setMedicines] = useState<CatalogItem[]>([]);
+  const [doctors, setDoctors] = useState<Doctor[]>([]);
   
   // Modal State
   const [showModal, setShowModal] = useState(false);
@@ -21,6 +22,7 @@ export default function Admin() {
       setSettings(await window.api.getSettings());
       setTreatments(await window.api.getCatalog('treatment'));
       setMedicines(await window.api.getCatalog('medicine'));
+      setDoctors(await window.api.getDoctors());
     }
   };
 
@@ -31,40 +33,48 @@ export default function Admin() {
     }
   };
 
-  const openAddItemModal = (type: 'treatment' | 'medicine') => {
-    setModalType(type);
+  const openAddItemModal = (type: 'treatment' | 'medicine' | 'doctor') => {
+    setModalType(type as any);
     setNewItemParams({ name: '', price: 0, category: 'Basic Procedures' });
     setShowModal(true);
   };
 
-  const openEditItemModal = (item: CatalogItem, type: 'treatment' | 'medicine') => {
-    setModalType(type);
-    setNewItemParams({ id: item.id, name: item.name, price: item.price, category: item.category || 'Basic Procedures' });
+  const openEditItemModal = (item: any, type: 'treatment' | 'medicine' | 'doctor') => {
+    setModalType(type as any);
+    setNewItemParams({ id: item.id, name: item.name, price: item.price || 0, category: item.category || 'Basic Procedures' });
     setShowModal(true);
   };
 
   const saveModalItem = async () => {
-    if (!newItemParams.name || isNaN(newItemParams.price) || newItemParams.price < 0) {
-      alert("Please enter valid name and a positive price.");
+    if (!newItemParams.name) {
+      alert("Please enter a valid name.");
       return;
     }
     if (window.api) {
-      await window.api.saveCatalogItem({ 
-        id: newItemParams.id,
-        name: newItemParams.name, 
-        price: newItemParams.price, 
-        type: modalType,
-        category: modalType === 'treatment' ? newItemParams.category : undefined
-      });
+      if (modalType === 'doctor' as any) {
+        await window.api.saveDoctor({ id: newItemParams.id, name: newItemParams.name });
+      } else {
+        await window.api.saveCatalogItem({ 
+          id: newItemParams.id,
+          name: newItemParams.name, 
+          price: newItemParams.price, 
+          type: modalType,
+          category: modalType === 'treatment' ? newItemParams.category : undefined
+        });
+      }
       setShowModal(false);
       loadData();
     }
   };
 
-  const deleteItem = async (id: number, type: 'treatment' | 'medicine') => {
+  const deleteItem = async (id: number, type: 'treatment' | 'medicine' | 'doctor') => {
     if (window.confirm('Delete item?')) {
       if (window.api) {
-        await window.api.deleteCatalogItem(id, type);
+        if (type === 'doctor') {
+          await window.api.deleteDoctor(id);
+        } else {
+          await window.api.deleteCatalogItem(id, type);
+        }
         loadData();
       }
     }
@@ -103,11 +113,11 @@ export default function Admin() {
                 <label>Allow Discounts</label>
               </div>
               <div className="input-group">
-                <label>POS Printer Left Margin (mm)</label>
+                <label>POS Printer Left Margin (mm) (e.g. 0 for Seznik)</label>
                 <input type="number" value={settings.pos_margin_left || 0} onChange={e => setSettings({...settings, pos_margin_left: parseFloat(e.target.value) || 0})} />
               </div>
               <div className="input-group">
-                <label>POS Printer Paper Width (mm)</label>
+                <label>POS Printer Paper Width (mm) (e.g. 58 for Seznik 2-inch)</label>
                 <input type="number" value={settings.pos_paper_width || 58} onChange={e => setSettings({...settings, pos_paper_width: parseFloat(e.target.value) || 58})} />
               </div>
               <button className="btn btn-primary" onClick={handleSaveSettings} style={{ marginTop: '16px' }}>Save Settings</button>
@@ -115,8 +125,33 @@ export default function Admin() {
           )}
         </div>
 
+        {/* Doctors Card */}
+        <div className="card">
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '16px' }}>
+            <h2 style={{ fontSize: '1.2rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <UserPlus size={20} /> Doctors Management
+            </h2>
+            <button className="btn btn-primary" style={{ padding: '6px 12px' }} onClick={() => openAddItemModal('doctor')}>
+              <Plus size={16} /> Add Doctor
+            </button>
+          </div>
+          {doctors.map(d => (
+            <div key={d.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '12px 0', borderBottom: '1px solid var(--border-color)' }}>
+              <span style={{ fontWeight: 500 }}>{d.name}</span>
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                <button className="btn-outline" style={{ padding: '4px', borderRadius: '4px', border: 'none', background: 'transparent' }} onClick={() => openEditItemModal(d, 'doctor')}>
+                  <Edit size={16} />
+                </button>
+                <button className="btn-danger" style={{ padding: '4px', borderRadius: '4px' }} onClick={() => deleteItem(d.id, 'doctor')}>
+                  <Trash2 size={16} />
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+
         {/* Catalog Cards */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', gridColumn: '1 / -1' }}>
           
           <div className="card">
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '16px' }}>
@@ -178,27 +213,29 @@ export default function Admin() {
               <X size={20} />
             </button>
             
-            <h2 style={{ marginBottom: '24px' }}>{newItemParams.id ? 'Edit' : 'Add New'} {modalType === 'treatment' ? 'Treatment' : 'Medicine'}</h2>
+            <h2 style={{ marginBottom: '24px' }}>{newItemParams.id ? 'Edit' : 'Add New'} {modalType === 'treatment' ? 'Treatment' : modalType === 'medicine' ? 'Medicine' : 'Doctor'}</h2>
             
             <div className="input-group">
               <label>Name</label>
               <input 
                 type="text" 
-                placeholder="Item name"
+                placeholder="Name"
                 value={newItemParams.name} 
                 onChange={(e) => setNewItemParams({...newItemParams, name: e.target.value})} 
               />
             </div>
             
-            <div className="input-group">
-              <label>Price (₹)</label>
-              <input 
-                type="number" 
-                min="0"
-                value={newItemParams.price} 
-                onChange={(e) => setNewItemParams({...newItemParams, price: parseFloat(e.target.value) || 0})} 
-              />
-            </div>
+            {modalType !== 'doctor' as any && (
+              <div className="input-group">
+                <label>Price (₹)</label>
+                <input 
+                  type="number" 
+                  min="0"
+                  value={newItemParams.price} 
+                  onChange={(e) => setNewItemParams({...newItemParams, price: parseFloat(e.target.value) || 0})} 
+                />
+              </div>
+            )}
 
             {modalType === 'treatment' && (
               <div className="input-group">

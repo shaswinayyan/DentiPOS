@@ -180,10 +180,16 @@ export default function Billing() {
 
         <style>{`
           @media print {
+            body { background: white !important; color: black !important; margin: 0; padding: 0; }
             body * { visibility: hidden; }
-            .layout * { display: none !important; }
-            #receipt-area, #receipt-area * { visibility: visible; display: block; }
-            #receipt-area { position: absolute; left: 0; top: 0; width: 100%; }
+            #receipt-area, #receipt-area * { visibility: visible; }
+            #receipt-area { 
+              position: absolute; 
+              left: 0; 
+              top: 0; 
+              width: 100%;
+              padding: 20px;
+            }
             .no-print { display: none !important; }
           }
         `}</style>

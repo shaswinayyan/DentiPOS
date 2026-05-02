@@ -39,8 +39,9 @@ function createWindow() {
   ipcMain.on('print-receipt', async (event) => {
     try {
       const pdfBuffer = await event.sender.printToPDF({
-        printBackground: true,
-        pageSize: 'A4'
+        printBackground: false,
+        pageSize: 'A4',
+        margins: { marginType: 'default' }
       });
       
       const { filePath } = await dialog.showSaveDialog({

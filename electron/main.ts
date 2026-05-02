@@ -59,6 +59,18 @@ function createWindow() {
     }
   });
 
+  ipcMain.on('print-receipt-direct', async (event) => {
+    try {
+      event.sender.print({
+        silent: false, // Show dialog for POS printer selection
+        printBackground: false,
+        margins: { marginType: 'none' }
+      });
+    } catch (error) {
+      console.error('Failed to print to POS', error);
+    }
+  });
+
   if (!app.isPackaged) {
     // Dev environment
     mainWindow.loadURL('http://localhost:5173');

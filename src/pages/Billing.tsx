@@ -12,7 +12,7 @@ export default function Billing() {
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [paymentMode, setPaymentMode] = useState('Cash');
   const [receiptTxn, setReceiptTxn] = useState<any>(null);
-
+  const [printMode, setPrintMode] = useState<'pdf' | 'pos'>('pdf');
 
   useEffect(() => {
     loadData();
@@ -132,11 +132,18 @@ export default function Billing() {
     }
   };
 
-  const handlePrint = () => {
-    // Basic browser print approach, electron handles it nicely if triggered.
-    if (window.api) {
-      window.api.printReceipt();
-    }
+  const handlePrintPDF = () => {
+    setPrintMode('pdf');
+    setTimeout(() => {
+      if (window.api) window.api.printReceipt();
+    }, 100);
+  };
+
+  const handlePrintPOS = () => {
+    setPrintMode('pos');
+    setTimeout(() => {
+      if (window.api) window.api.printReceiptDirect();
+    }, 100);
   };
 
   if (receiptTxn) {
@@ -174,7 +181,8 @@ export default function Billing() {
         <p style={{ textAlign: 'center', marginTop: '24px', fontStyle: 'italic' }}>Thank you for visiting!</p>
         
         <div style={{ display: 'flex', gap: '16px', marginTop: '24px', justifyContent: 'center' }} className="no-print">
-          <button className="btn btn-primary" onClick={handlePrint}><Printer size={16}/> Print</button>
+          <button className="btn btn-primary" onClick={handlePrintPOS}><Printer size={16}/> Print to POS</button>
+          <button className="btn btn-outline" onClick={handlePrintPDF}>Save PDF</button>
           <button className="btn btn-outline" onClick={() => setReceiptTxn(null)}>New Bill</button>
         </div>
 
@@ -187,8 +195,9 @@ export default function Billing() {
               position: absolute; 
               left: 0; 
               top: 0; 
-              width: 100%;
-              padding: 20px;
+              width: ${printMode === 'pos' ? '58mm' : '100%'};
+              padding: ${printMode === 'pos' ? '0' : '20px'};
+              font-size: ${printMode === 'pos' ? '12px' : 'inherit'};
             }
             .no-print { display: none !important; }
           }

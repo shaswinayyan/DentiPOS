@@ -69,6 +69,7 @@ export interface ElectronAPI {
     discounts: Discount[]
   }>;
   printReceipt: () => void;
+  printReceiptDirect: () => void;
 }
 
 declare global {

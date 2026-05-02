@@ -10,5 +10,6 @@ contextBridge.exposeInMainWorld('api', {
     ipcRenderer.invoke('save-transaction', txn, items, payments, discounts),
   getTransactions: () => ipcRenderer.invoke('get-transactions'),
   getTransactionDetails: (id: number) => ipcRenderer.invoke('get-transaction-details', id),
-  printReceipt: () => ipcRenderer.send('print-receipt')
+  printReceipt: () => ipcRenderer.send('print-receipt'),
+  printReceiptDirect: () => ipcRenderer.send('print-receipt-direct')
 });

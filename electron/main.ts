@@ -12,6 +12,47 @@ const pickDefaultPrinterName = async (sender: WebContents): Promise<string> => {
   return defaultPrinter?.name || '';
 };
 
+const parseCustomSize = (input?: string): { widthMicrons: number; heightMicrons: number } | null => {
+  if (!input) return null;
+  const normalized = input.trim().toLowerCase();
+  const match = normalized.match(/^(\d+(?:\.\d+)?)\s*[x*]\s*(\d+(?:\.\d+)?)$/);
+  if (!match) return null;
+  const widthMm = Number(match[1]);
+  const heightMm = Number(match[2]);
+  if (!Number.isFinite(widthMm) || !Number.isFinite(heightMm) || widthMm <= 0 || heightMm <= 0) return null;
+  return {
+    widthMicrons: Math.round(widthMm * 1000),
+    heightMicrons: Math.round(heightMm * 1000)
+  };
+};
+
+const parsePosPageSize = (input?: string): string | { width: number; height: number } => {
+  const custom = parseCustomSize(input);
+  if (!custom) return input || '58mm';
+  // Approximate 203 DPI thermal printers at 8 dots/mm.
+  const widthPx = Math.max(200, Math.round((custom.widthMicrons / 1000) * 8));
+  const heightPx = Math.max(120, Math.round((custom.heightMicrons / 1000) * 8));
+  return { width: widthPx, height: heightPx };
+};
+
+const createPrintWindow = async (html: string) => {
+  const win = new BrowserWindow({
+    show: false,
+    webPreferences: {
+      sandbox: true
+    }
+  });
+  await win.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
+  await new Promise<void>((resolve) => {
+    if (win.webContents.isLoading()) {
+      win.webContents.once('did-finish-load', () => resolve());
+    } else {
+      resolve();
+    }
+  });
+  return win;
+};
+
 function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1200,
@@ -99,9 +140,9 @@ function createWindow() {
 
   ipcMain.handle('print-pos-receipt', async (event, data, widthString) => {
     try {
-      const width = widthString || '58mm';
+      const width = parsePosPageSize(widthString || '58mm');
       const printerName = await pickDefaultPrinterName(event.sender);
-      const printOptions = {
+      const printOptions: any = {
         preview: false,
         margin: '0 0 0 0',
         copies: 1,
@@ -146,6 +187,70 @@ function createWindow() {
         success: false,
         error: error instanceof Error ? error.message : 'Unknown POS print failure'
       };
+    }
+  });
+
+  ipcMain.handle('print-bill-document', async (event, html: string, pageSize: string) => {
+    let printWindow: BrowserWindow | null = null;
+    try {
+      printWindow = await createPrintWindow(html);
+      const printerName = await pickDefaultPrinterName(event.sender);
+      const custom = parseCustomSize(pageSize);
+      const success = await new Promise<boolean>((resolve) => {
+        printWindow!.webContents.print(
+          {
+            silent: false,
+            printBackground: true,
+            deviceName: printerName || undefined,
+            pageSize: custom
+              ? { width: custom.widthMicrons, height: custom.heightMicrons }
+              : undefined,
+            margins: { marginType: 'none' }
+          },
+          (ok) => resolve(ok)
+        );
+      });
+      return { success };
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : 'Unable to print bill document' };
+    } finally {
+      if (printWindow && !printWindow.isDestroyed()) {
+        printWindow.close();
+      }
+    }
+  });
+
+  ipcMain.handle('save-bill-pdf', async (_, html: string, pageSize: string) => {
+    let pdfWindow: BrowserWindow | null = null;
+    try {
+      pdfWindow = await createPrintWindow(html);
+      const custom = parseCustomSize(pageSize);
+      const pdfBuffer = await pdfWindow.webContents.printToPDF({
+        printBackground: true,
+        pageSize: custom
+          ? { width: custom.widthMicrons, height: custom.heightMicrons }
+          : 'A4',
+        margins: { marginType: 'none' },
+        preferCSSPageSize: true
+      });
+
+      const defaultName = `bill_${Date.now()}.pdf`;
+      const { filePath } = await dialog.showSaveDialog({
+        title: 'Save Bill PDF',
+        defaultPath: path.join(app.getPath('downloads'), defaultName),
+        filters: [{ name: 'PDFs', extensions: ['pdf'] }]
+      });
+      if (!filePath) return { success: false, error: 'Save cancelled' };
+
+      fs.writeFileSync(filePath, pdfBuffer);
+      await shell.openPath(filePath);
+      return { success: true, filePath };
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : 'Unable to save bill PDF' };
+    } finally {
+      if (pdfWindow && !pdfWindow.isDestroyed()) {
+        pdfWindow.close();
+      }
     }
   });
 

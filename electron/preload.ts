@@ -26,4 +26,6 @@ contextBridge.exposeInMainWorld('api', {
   printReceipt: () => ipcRenderer.send('print-receipt'),
   printReceiptDirect: () => ipcRenderer.send('print-receipt-direct'),
   printPosReceipt: (data: any[], width: string) => ipcRenderer.invoke('print-pos-receipt', data, width),
+  printBillDocument: (html: string, pageSize: string) => ipcRenderer.invoke('print-bill-document', html, pageSize),
+  saveBillPdf: (html: string, pageSize: string) => ipcRenderer.invoke('save-bill-pdf', html, pageSize),
 });

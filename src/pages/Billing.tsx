@@ -143,7 +143,7 @@ export default function Billing() {
   const handlePrintBillPOS = async () => {
     if (!window.api || !receiptTxn) return;
     const paperWidth = receiptTxn.settings?.pos_paper_width || 58;
-    const width = `${paperWidth}mm`;
+    const width = paperWidth === 50 ? '50x30' : `${paperWidth}mm`;
     const data: any[] = [
       { type: 'text', value: receiptTxn.settings?.clinic_name || 'Clinic', style: { textAlign: 'center', fontWeight: '700', fontSize: '16px' } },
       { type: 'text', value: receiptTxn.settings?.clinic_address || '', style: { textAlign: 'center', fontSize: '11px' } },
@@ -182,6 +182,60 @@ export default function Billing() {
     }
   };
 
+  const getBillHtml = () => {
+    if (!receiptTxn) return '';
+    const rows = receiptTxn.cart
+      .map((item: any) => {
+        const qtyLabel = item.quantity > 1 ? ` x${item.quantity}` : '';
+        return `<tr><td>${item.item_name}${qtyLabel}</td><td style="text-align:right;">Rs ${item.total_price.toFixed(2)}</td></tr>`;
+      })
+      .join('');
+
+    return `<!doctype html><html><head><meta charset="utf-8"/><style>
+      @page { margin: 0; }
+      body { font-family: monospace; color:#000; margin:0; padding:6px; font-size:11px; }
+      h1 { margin:0 0 4px; text-align:center; font-size:14px; }
+      p { margin:2px 0; }
+      table { width:100%; border-collapse:collapse; margin-top:6px; }
+      td { padding:2px 0; vertical-align:top; }
+      .line { border-top:1px dashed #000; margin:6px 0; }
+      .right { text-align:right; }
+      .total { font-weight:700; font-size:13px; }
+    </style></head><body>
+      <h1>${receiptTxn.settings?.clinic_name || 'Clinic'}</h1>
+      <p style="text-align:center;">${receiptTxn.settings?.clinic_address || ''}</p>
+      <div class="line"></div>
+      <p>Txn ID: #${receiptTxn.id}</p>
+      <p>Date: ${new Date(receiptTxn.timestamp).toLocaleString()}</p>
+      <table>${rows}</table>
+      <div class="line"></div>
+      <p class="right">Subtotal: Rs ${receiptTxn.total_amount.toFixed(2)}</p>
+      ${receiptTxn.calculatedDiscount > 0 ? `<p class="right">Discount: -Rs ${receiptTxn.calculatedDiscount.toFixed(2)}</p>` : ''}
+      <p class="right total">Total: Rs ${receiptTxn.final_amount.toFixed(2)}</p>
+      <p style="text-align:center; margin-top:8px;">Thank you for visiting!</p>
+    </body></html>`;
+  };
+
+  const handlePrintBillSystem = async () => {
+    if (!window.api || !receiptTxn) return;
+    const paperWidth = receiptTxn.settings?.pos_paper_width || 58;
+    const pageSize = paperWidth === 50 ? '50x30' : `${paperWidth}x100`;
+    const result = await window.api.printBillDocument(getBillHtml(), pageSize);
+    if (!result.success) {
+      alert(`System bill print failed: ${result.error || 'Unknown error'}`);
+    }
+  };
+
+  const handleSaveBillPdf = async () => {
+    if (!window.api || !receiptTxn) return;
+    const paperWidth = receiptTxn.settings?.pos_paper_width || 58;
+    const pageSize = paperWidth === 50 ? '50x30' : `${paperWidth}x120`;
+    const result = await window.api.saveBillPdf(getBillHtml(), pageSize);
+    if (!result.success) {
+      alert(`Save PDF failed: ${result.error || 'Unknown error'}`);
+    }
+  };
+
   if (receiptTxn) {
     const leftMargin = receiptTxn.settings?.pos_margin_left || 0;
     const paperWidth = receiptTxn.settings?.pos_paper_width || 58;
@@ -190,6 +244,8 @@ export default function Billing() {
       <div style={{ padding: '24px', display: 'flex', gap: '24px', flexDirection: 'column', alignItems: 'center' }}>
         <div className="no-print" style={{ display: 'flex', gap: '16px', marginBottom: '16px' }}>
            <button className="btn btn-primary" onClick={handlePrintBillPOS}><Printer size={16}/> Print Bill (POS)</button>
+           <button className="btn btn-outline" onClick={handlePrintBillSystem}><Printer size={16}/> Print Bill (System)</button>
+           <button className="btn btn-outline" onClick={handleSaveBillPdf}><Printer size={16}/> Save Bill PDF</button>
            <button className="btn btn-outline" onClick={() => setReceiptTxn(null)}>New Bill</button>
         </div>
 

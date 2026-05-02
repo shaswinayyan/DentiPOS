@@ -47,6 +47,7 @@ export interface Settings {
   clinic_name: string;
   clinic_address: string;
   pos_margin_left: number;
+  pos_paper_width: number;
 }
 
 // IPC Interface

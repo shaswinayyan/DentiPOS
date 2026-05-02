@@ -106,6 +106,10 @@ export default function Admin() {
                 <label>POS Printer Left Margin (mm)</label>
                 <input type="number" value={settings.pos_margin_left || 0} onChange={e => setSettings({...settings, pos_margin_left: parseFloat(e.target.value) || 0})} />
               </div>
+              <div className="input-group">
+                <label>POS Printer Paper Width (mm)</label>
+                <input type="number" value={settings.pos_paper_width || 58} onChange={e => setSettings({...settings, pos_paper_width: parseFloat(e.target.value) || 58})} />
+              </div>
               <button className="btn btn-primary" onClick={handleSaveSettings} style={{ marginTop: '16px' }}>Save Settings</button>
             </div>
           )}

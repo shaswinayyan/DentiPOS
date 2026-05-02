@@ -192,12 +192,13 @@ export default function Billing() {
             body * { visibility: hidden; }
             #receipt-area, #receipt-area * { visibility: visible; }
             #receipt-area { 
-              position: absolute; 
-              left: 0; 
-              top: 0; 
-              width: ${printMode === 'pos' ? '58mm' : '100%'};
-              padding: ${printMode === 'pos' ? '0' : '20px'};
-              padding-left: ${printMode === 'pos' ? (receiptTxn.settings?.pos_margin_left || 0) + 'mm' : '20px'};
+              position: absolute !important; 
+              left: 0 !important; 
+              top: 0 !important; 
+              margin: 0 !important;
+              width: ${printMode === 'pos' ? (receiptTxn.settings?.pos_paper_width || 58) + 'mm' : '100%'} !important;
+              padding: ${printMode === 'pos' ? '0' : '20px'} !important;
+              padding-left: ${printMode === 'pos' ? (receiptTxn.settings?.pos_margin_left || 0) + 'mm' : '20px'} !important;
               font-size: ${printMode === 'pos' ? '12px' : 'inherit'};
             }
             .no-print { display: none !important; }

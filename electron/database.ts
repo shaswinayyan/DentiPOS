@@ -53,7 +53,8 @@ export function setupDatabase(dbPath: string) {
       allow_discount INTEGER, 
       clinic_name TEXT, 
       clinic_address TEXT,
-      pos_margin_left INTEGER DEFAULT 0
+      pos_margin_left INTEGER DEFAULT 0,
+      pos_paper_width INTEGER DEFAULT 58
     );
   `);
 
@@ -69,12 +70,18 @@ export function setupDatabase(dbPath: string) {
     // Column already exists
   }
 
+  try {
+    db.prepare('ALTER TABLE Settings ADD COLUMN pos_paper_width INTEGER DEFAULT 58').run();
+  } catch (e) {
+    // Column already exists
+  }
+
   // Default initial data
   const checkSettings = db.prepare(`SELECT COUNT(*) as count FROM Settings`).get() as { count: number };
   if (checkSettings.count === 0) {
     db.prepare(`
-      INSERT INTO Settings (id, consultation_fee, gst_enabled, allow_price_override, allow_discount, clinic_name, clinic_address, pos_margin_left) 
-      VALUES (1, 250, 0, 1, 1, 'My Dental Clinic', '123 Health Street', 0)
+      INSERT INTO Settings (id, consultation_fee, gst_enabled, allow_price_override, allow_discount, clinic_name, clinic_address, pos_margin_left, pos_paper_width) 
+      VALUES (1, 250, 0, 1, 1, 'My Dental Clinic', '123 Health Street', 0, 58)
     `).run();
   }
 
@@ -154,12 +161,14 @@ export function setupDatabase(dbPath: string) {
       const stmt = db.prepare(`
         UPDATE Settings SET 
           consultation_fee = ?, gst_enabled = ?, allow_price_override = ?, 
-          allow_discount = ?, clinic_name = ?, clinic_address = ?, pos_margin_left = ?
+          allow_discount = ?, clinic_name = ?, clinic_address = ?, pos_margin_left = ?,
+          pos_paper_width = ?
         WHERE id = 1
       `);
       stmt.run(
         settings.consultation_fee, settings.gst_enabled, settings.allow_price_override, 
-        settings.allow_discount, settings.clinic_name, settings.clinic_address, settings.pos_margin_left || 0
+        settings.allow_discount, settings.clinic_name, settings.clinic_address, 
+        settings.pos_margin_left || 0, settings.pos_paper_width || 58
       );
       return true;
     },

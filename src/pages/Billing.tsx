@@ -146,6 +146,24 @@ export default function Billing() {
       const api = window.api as any;
       const paperWidth = receiptTxn.settings?.pos_paper_width || 58;
       const width = paperWidth === 50 ? '50x30' : `${paperWidth}mm`;
+      if (typeof api.printBillRaw === 'function') {
+        const rawResult = await Promise.resolve(api.printBillRaw({
+          clinicName: receiptTxn.settings?.clinic_name || 'Clinic',
+          clinicAddress: receiptTxn.settings?.clinic_address || '',
+          id: receiptTxn.id,
+          timestamp: new Date(receiptTxn.timestamp).toLocaleString(),
+          items: receiptTxn.cart.map((item: any) => ({
+            name: item.item_name,
+            qty: item.quantity,
+            total: item.total_price
+          })),
+          subtotal: receiptTxn.total_amount,
+          discount: receiptTxn.calculatedDiscount,
+          total: receiptTxn.final_amount
+        }));
+        if (rawResult?.success) return;
+      }
+
       const data: any[] = [
         { type: 'text', value: receiptTxn.settings?.clinic_name || 'Clinic', style: { textAlign: 'center', fontWeight: '700', fontSize: '16px' } },
         { type: 'text', value: receiptTxn.settings?.clinic_address || '', style: { textAlign: 'center', fontSize: '11px' } },
@@ -203,8 +221,12 @@ export default function Billing() {
       .join('');
 
     return `<!doctype html><html><head><meta charset="utf-8"/><style>
-      @page { margin: 0; }
-      body { font-family: monospace; color:#000; margin:0; padding:6px; font-size:11px; }
+      @media print {
+        @page { size: 44mm 200mm; margin: 0; }
+      }
+      @page { size: 44mm 200mm; margin: 0; }
+      body { width: 44mm; font-family: monospace; color:#000; margin:0; padding:0; font-size:11px; -webkit-print-color-adjust: exact; }
+      .receipt-container { width: 44mm; overflow: hidden; padding: 4px; box-sizing: border-box; }
       h1 { margin:0 0 4px; text-align:center; font-size:14px; }
       p { margin:2px 0; }
       table { width:100%; border-collapse:collapse; margin-top:6px; }
@@ -212,7 +234,7 @@ export default function Billing() {
       .line { border-top:1px dashed #000; margin:6px 0; }
       .right { text-align:right; }
       .total { font-weight:700; font-size:13px; }
-    </style></head><body>
+    </style></head><body><div class="receipt-container">
       <h1>${receiptTxn.settings?.clinic_name || 'Clinic'}</h1>
       <p style="text-align:center;">${receiptTxn.settings?.clinic_address || ''}</p>
       <div class="line"></div>
@@ -224,15 +246,14 @@ export default function Billing() {
       ${receiptTxn.calculatedDiscount > 0 ? `<p class="right">Discount: -Rs ${receiptTxn.calculatedDiscount.toFixed(2)}</p>` : ''}
       <p class="right total">Total: Rs ${receiptTxn.final_amount.toFixed(2)}</p>
       <p style="text-align:center; margin-top:8px;">Thank you for visiting!</p>
-    </body></html>`;
+    </div></body></html>`;
   };
 
   const handlePrintBillSystem = async () => {
     if (!window.api || !receiptTxn) return;
     try {
       const api = window.api as any;
-      const paperWidth = receiptTxn.settings?.pos_paper_width || 58;
-      const pageSize = paperWidth === 50 ? '50x30' : `${paperWidth}x100`;
+      const pageSize = '44x200';
       if (typeof api.printBillDocument === 'function') {
         const result = await Promise.resolve(api.printBillDocument(getBillHtml(), pageSize));
         if (result && result.success === false) {
@@ -254,8 +275,7 @@ export default function Billing() {
     if (!window.api || !receiptTxn) return;
     try {
       const api = window.api as any;
-      const paperWidth = receiptTxn.settings?.pos_paper_width || 58;
-      const pageSize = paperWidth === 50 ? '50x30' : `${paperWidth}x120`;
+      const pageSize = '44x200';
       if (typeof api.saveBillPdf === 'function') {
         const result = await Promise.resolve(api.saveBillPdf(getBillHtml(), pageSize));
         if (result && result.success === false) {

@@ -117,6 +117,7 @@ export interface ElectronAPI {
   printPosReceipt: (data: any[], width: string) => Promise<{ success: boolean; mode?: string; printerName?: string; error?: string }>;
   printBillDocument: (html: string, pageSize: string) => Promise<{ success: boolean; error?: string }>;
   saveBillPdf: (html: string, pageSize: string) => Promise<{ success: boolean; filePath?: string; error?: string }>;
+  printBillRaw: (payload: any) => Promise<{ success: boolean; printerName?: string; error?: string }>;
 }
 
 declare global {

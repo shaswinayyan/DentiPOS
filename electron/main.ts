@@ -3,6 +3,7 @@ import fs from 'fs';
 import path from 'path';
 import { setupDatabase } from './database';
 import { PosPrinter } from 'electron-pos-printer';
+const thermalPrinter = require('node-thermal-printer');
 
 let mainWindow: BrowserWindow | null = null;
 
@@ -51,6 +52,11 @@ const createPrintWindow = async (html: string) => {
     }
   });
   return win;
+};
+
+const fitToWidth = (value: string, max: number): string => {
+  if (value.length <= max) return value;
+  return value.slice(0, max - 1) + '.';
 };
 
 function createWindow() {
@@ -303,6 +309,61 @@ function createWindow() {
       if (pdfWindow && !pdfWindow.isDestroyed()) {
         pdfWindow.close();
       }
+    }
+  });
+
+  ipcMain.handle('print-bill-raw', async (event, payload) => {
+    try {
+      const printerName = await pickDefaultPrinterName(event.sender);
+      if (!printerName) {
+        return { success: false, error: 'No system printer found' };
+      }
+
+      const Printer = thermalPrinter.printer;
+      const Types = thermalPrinter.types;
+      const printer = new Printer({
+        type: Types.EPSON,
+        interface: `printer:${printerName}`,
+        width: 32,
+        removeSpecialCharacters: false
+      });
+
+      printer.alignCenter();
+      printer.bold(true);
+      printer.println(payload.clinicName || 'Clinic');
+      printer.bold(false);
+      if (payload.clinicAddress) printer.println(payload.clinicAddress);
+      printer.drawLine();
+      printer.alignLeft();
+      printer.println(`Txn: #${payload.id}`);
+      printer.println(`Date: ${payload.timestamp}`);
+      printer.drawLine();
+
+      (payload.items || []).forEach((item: any) => {
+        const name = fitToWidth(`${item.name}${item.qty > 1 ? ` x${item.qty}` : ''}`, 22);
+        const amount = `Rs ${Number(item.total || 0).toFixed(2)}`;
+        const line = `${name}${' '.repeat(Math.max(1, 32 - name.length - amount.length))}${amount}`;
+        printer.println(line);
+      });
+
+      printer.drawLine();
+      printer.println(`Subtotal: Rs ${Number(payload.subtotal || 0).toFixed(2)}`);
+      if (Number(payload.discount || 0) > 0) {
+        printer.println(`Discount: -Rs ${Number(payload.discount || 0).toFixed(2)}`);
+      }
+      printer.bold(true);
+      printer.println(`Total: Rs ${Number(payload.total || 0).toFixed(2)}`);
+      printer.bold(false);
+      printer.alignCenter();
+      printer.println('Thank you for visiting!');
+      printer.newLine();
+      printer.cut();
+
+      const ok = await printer.execute();
+      if (!ok) return { success: false, error: 'Printer returned failure' };
+      return { success: true, printerName };
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : 'RAW print failed' };
     }
   });
   ipcMain.on('save-bill-pdf', async (_, html: string, pageSize: string) => {

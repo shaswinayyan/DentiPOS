@@ -1,6 +1,7 @@
 import { app, BrowserWindow, ipcMain, dialog, shell, type WebContents } from 'electron';
 import fs from 'fs';
 import path from 'path';
+import os from 'os';
 import { setupDatabase } from './database';
 import { PosPrinter } from 'electron-pos-printer';
 const thermalPrinter = require('node-thermal-printer');
@@ -36,14 +37,24 @@ const parsePosPageSize = (input?: string): string | { width: number; height: num
   return { width: widthPx, height: heightPx };
 };
 
+const writeTempHtml = (html: string) => {
+  const tempPath = path.join(os.tmpdir(), `dentipos-receipt-${Date.now()}.html`);
+  fs.writeFileSync(tempPath, html, 'utf8');
+  return tempPath;
+};
+
 const createPrintWindow = async (html: string, show = false) => {
   const win = new BrowserWindow({
     show,
+    parent: mainWindow || undefined,
+    modal: false,
+    autoHideMenuBar: true,
     webPreferences: {
       sandbox: true
     }
   });
-  await win.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
+  const htmlPath = writeTempHtml(html);
+  await win.loadFile(htmlPath);
   await new Promise<void>((resolve) => {
     if (win.webContents.isLoading()) {
       win.webContents.once('did-finish-load', () => resolve());
@@ -52,6 +63,27 @@ const createPrintWindow = async (html: string, show = false) => {
     }
   });
   return win;
+};
+
+const openNativePrintWindow = async (html: string) => {
+  const printWindow = await createPrintWindow(html, true);
+  printWindow.show();
+  printWindow.focus();
+
+  // Let the renderer window invoke the native browser print flow itself.
+  setTimeout(() => {
+    if (!printWindow.isDestroyed()) {
+      printWindow.webContents.executeJavaScript(`
+        window.focus();
+        window.print();
+        true;
+      `).catch((error) => {
+        console.error('Failed to trigger native window.print()', error);
+      });
+    }
+  }, 400);
+
+  return printWindow;
 };
 
 const fitToWidth = (value: string, max: number): string => {
@@ -228,63 +260,29 @@ function createWindow() {
   ipcMain.handle('print-bill-document', async (event, html: string, pageSize: string) => {
     let printWindow: BrowserWindow | null = null;
     try {
-      const normalMode = pageSize === 'normal';
-      printWindow = await createPrintWindow(html, normalMode);
-      const settings = dbService.getSettings() as any;
-      const printerName = settings?.pos_printer_name || await pickDefaultPrinterName(event.sender);
-      const custom = normalMode ? null : parseCustomSize(pageSize);
-      const success = await new Promise<boolean>((resolve) => {
-        printWindow!.webContents.print(
-          {
-            silent: false,
-            printBackground: true,
-            deviceName: custom ? (printerName || undefined) : undefined,
-            pageSize: custom
-              ? { width: custom.widthMicrons, height: custom.heightMicrons }
-              : undefined,
-            margins: { marginType: custom ? 'none' : 'default' }
-          },
-          (ok) => resolve(ok)
-        );
-      });
-      return { success };
+      printWindow = await openNativePrintWindow(html);
+      return { success: true };
     } catch (error) {
       return { success: false, error: error instanceof Error ? error.message : 'Unable to print bill document' };
     } finally {
       if (printWindow && !printWindow.isDestroyed()) {
         setTimeout(() => {
           if (printWindow && !printWindow.isDestroyed()) printWindow.close();
-        }, 500);
+        }, 5000);
       }
     }
   });
   ipcMain.on('print-bill-document', async (event, html: string, pageSize: string) => {
-    // Backward compatibility fire-and-forget support
     let printWindow: BrowserWindow | null = null;
     try {
-      printWindow = await createPrintWindow(html);
-      const settings = dbService.getSettings() as any;
-      const printerName = settings?.pos_printer_name || await pickDefaultPrinterName(event.sender);
-      const custom = parseCustomSize(pageSize);
-      await new Promise<boolean>((resolve) => {
-        printWindow!.webContents.print(
-          {
-            silent: false,
-            printBackground: true,
-            deviceName: printerName || undefined,
-            pageSize: custom
-              ? { width: custom.widthMicrons, height: custom.heightMicrons }
-              : undefined,
-            margins: { marginType: 'none' }
-          },
-          (ok) => resolve(ok)
-        );
-      });
+      printWindow = await openNativePrintWindow(html);
     } catch (error) {
       console.error('Legacy print-bill-document failed', error);
     } finally {
       if (printWindow && !printWindow.isDestroyed()) {
-        printWindow.close();
+        setTimeout(() => {
+          if (printWindow && !printWindow.isDestroyed()) printWindow.close();
+        }, 5000);
       }
     }
   });
@@ -296,9 +294,7 @@ function createWindow() {
       const custom = pageSize === 'normal' ? null : parseCustomSize(pageSize);
       const pdfBuffer = await pdfWindow.webContents.printToPDF({
         printBackground: true,
-        pageSize: custom
-          ? { width: custom.widthMicrons, height: custom.heightMicrons }
-          : 'A4',
+        pageSize: custom ? { width: custom.widthMicrons, height: custom.heightMicrons } : 'A4',
         margins: { marginType: custom ? 'none' : 'default' },
         preferCSSPageSize: true
       });

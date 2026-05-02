@@ -142,22 +142,19 @@ export default function Billing() {
 
   const handlePrintBillPOS = async () => {
     if (!window.api || !receiptTxn) return;
-    try {
-      const api = window.api as any;
-      if (typeof api.printBillDocument !== 'function') {
-        alert('Print API missing. Please restart app.');
-        return;
-      }
-      const result = await Promise.resolve(api.printBillDocument(getBillHtml(), 'normal'));
-      if (!result?.success) {
-        alert(`Print failed: ${result?.error || 'No response from printer driver'}`);
-      }
-    } catch (error: any) {
-      alert(`Print failed: ${error?.message || 'Unknown error'}`);
+    const api = window.api as any;
+    if (typeof api.printBillDocumentDirect === 'function') {
+      api.printBillDocumentDirect(getBillDocumentHtml(), 'normal');
+      return;
     }
+    alert('Print API missing. Please restart app.');
   };
 
-  const getBillHtml = () => {
+  const handlePrintBillSystem = async () => {
+    await handlePrintBillPOS();
+  };
+
+  const getBillDocumentHtml = () => {
     if (!receiptTxn) return '';
     const rows = receiptTxn.cart
       .map((item: any) => {
@@ -167,62 +164,102 @@ export default function Billing() {
       .join('');
 
     return `<!doctype html><html><head><meta charset="utf-8"/><style>
-      @media print {
-        @page { margin: 8mm; }
+      @page { size: 48mm 1200mm; margin: 0; }
+      html, body {
+        width: 48mm;
+        min-width: 48mm;
+        max-width: 48mm;
+        margin: 0;
+        padding: 0;
+        background: #fff;
       }
-      body { font-family: monospace; color:#000; margin:0; padding:0; font-size:11px; -webkit-print-color-adjust: exact; }
-      .receipt-container { width: 48mm; max-width: 48mm; overflow: hidden; padding: 4px; box-sizing: border-box; }
-      h1 { margin:0 0 4px; text-align:center; font-size:14px; }
-      p { margin:2px 0; }
-      table { width:100%; border-collapse:collapse; margin-top:6px; }
-      td { padding:2px 0; vertical-align:top; }
-      .line { border-top:1px dashed #000; margin:6px 0; }
+      body {
+        font-family: Arial, sans-serif;
+        color: #000;
+        font-size: 12px;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
+      .page {
+        width: 48mm;
+        min-width: 48mm;
+        max-width: 48mm;
+        padding: 2mm;
+        box-sizing: border-box;
+        overflow: hidden;
+      }
+      .receipt { width: 44mm; max-width: 44mm; padding: 0; box-sizing: border-box; }
+      h1 { margin:0 0 4px; text-align:center; font-size:15px; }
+      p { margin:4px 0; }
+      table { width:100%; border-collapse:collapse; margin:10px 0; }
+      th, td { padding:4px 0; vertical-align:top; }
+      th { text-align:left; border-bottom: 1px dashed #000; }
+      .line { border-top:1px dashed #000; margin:8px 0; }
       .right { text-align:right; }
-      .total { font-weight:700; font-size:13px; }
-    </style></head><body><div class="receipt-container">
-      <h1>${receiptTxn.settings?.clinic_name || 'Clinic'}</h1>
-      <p style="text-align:center;">${receiptTxn.settings?.clinic_address || ''}</p>
-      <div class="line"></div>
-      <p>Txn ID: #${receiptTxn.id}</p>
-      <p>Date: ${new Date(receiptTxn.timestamp).toLocaleString()}</p>
-      <table>${rows}</table>
-      <div class="line"></div>
-      <p class="right">Subtotal: Rs ${receiptTxn.total_amount.toFixed(2)}</p>
-      ${receiptTxn.calculatedDiscount > 0 ? `<p class="right">Discount: -Rs ${receiptTxn.calculatedDiscount.toFixed(2)}</p>` : ''}
-      <p class="right total">Total: Rs ${receiptTxn.final_amount.toFixed(2)}</p>
-      <p style="text-align:center; margin-top:8px;">Thank you for visiting!</p>
-    </div></body></html>`;
-  };
-
-  const handlePrintBillSystem = async () => {
-    if (!window.api || !receiptTxn) return;
-    try {
-      const api = window.api as any;
-      const pageSize = 'normal';
-      if (typeof api.printBillDocument === 'function') {
-        const result = await Promise.resolve(api.printBillDocument(getBillHtml(), pageSize));
-        if (result && result.success === false) {
-          alert(`System bill print failed: ${result.error || 'Unknown error'}`);
-        }
-        return;
+      .total { font-weight:700; font-size:14px; }
+      .center { text-align:center; }
+      .toolbar {
+        position: sticky;
+        top: 0;
+        display: flex;
+        gap: 8px;
+        padding: 8px;
+        background: #f5f5f5;
+        border-bottom: 1px solid #ddd;
+        width: 100vw;
+        box-sizing: border-box;
       }
-      if (typeof api.printReceiptDirect === 'function') {
-        api.printReceiptDirect();
-        return;
+      .toolbar button {
+        padding: 6px 10px;
+        font-size: 12px;
       }
-      alert('No system print API found in Billing route.');
-    } catch (error: any) {
-      alert(`System bill print failed: ${error?.message || 'Unknown error'}`);
-    }
+      @media print {
+        .toolbar { display: none; }
+      }
+    </style></head><body>
+      <div class="toolbar">
+        <button onclick="window.print()">Print</button>
+        <button onclick="window.close()">Close</button>
+      </div>
+      <div class="page">
+      <div class="receipt">
+        <h1>${receiptTxn.settings?.clinic_name || 'Clinic'}</h1>
+        <p class="center">${receiptTxn.settings?.clinic_address || ''}</p>
+        <div class="line"></div>
+        <p><strong>Txn ID:</strong> #${receiptTxn.id}</p>
+        <p><strong>Date:</strong> ${new Date(receiptTxn.timestamp).toLocaleString()}</p>
+        <table>
+          <thead>
+            <tr>
+              <th>Item</th>
+              <th class="right">Amt</th>
+            </tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
+        <div class="line"></div>
+        <p class="right">Subtotal: Rs ${receiptTxn.total_amount.toFixed(2)}</p>
+        ${receiptTxn.calculatedDiscount > 0 ? `<p class="right">Discount: -Rs ${receiptTxn.calculatedDiscount.toFixed(2)}</p>` : ''}
+        <p class="right total">Total: Rs ${receiptTxn.final_amount.toFixed(2)}</p>
+        <p class="center" style="margin-top:12px;">Thank you for visiting!</p>
+      </div>
+    </div>
+    <script>
+      window.addEventListener('load', function () {
+        setTimeout(function () {
+          try { window.print(); } catch (e) {}
+        }, 400);
+      });
+    </script>
+    </body></html>`;
   };
 
   const handleSaveBillPdf = async () => {
     if (!window.api || !receiptTxn) return;
     try {
       const api = window.api as any;
-      const pageSize = 'normal';
       if (typeof api.saveBillPdf === 'function') {
-        const result = await Promise.resolve(api.saveBillPdf(getBillHtml(), pageSize));
+        const result = await Promise.resolve(api.saveBillPdf(getBillDocumentHtml(), '48x1200'));
         if (result && result.success === false) {
           alert(`Save PDF failed: ${result.error || 'Unknown error'}`);
         }
@@ -232,7 +269,7 @@ export default function Billing() {
         api.printReceipt();
         return;
       }
-      alert('No PDF API found in Billing route.');
+      alert('PDF API missing. Please restart app.');
     } catch (error: any) {
       alert(`Save PDF failed: ${error?.message || 'Unknown error'}`);
     }
@@ -240,7 +277,6 @@ export default function Billing() {
 
   if (receiptTxn) {
     const leftMargin = receiptTxn.settings?.pos_margin_left || 0;
-    const paperWidth = receiptTxn.settings?.pos_paper_width || 58;
     
     return (
       <div style={{ padding: '24px', display: 'flex', gap: '24px', flexDirection: 'column', alignItems: 'center' }}>
@@ -302,20 +338,22 @@ export default function Billing() {
             .no-print { display: none !important; }
             .layout * { display: none !important; }
             
-            #bill-area, #bill-area * { visibility: visible; display: block; }
+            #bill-area, #bill-area * { visibility: visible; }
             #bill-area { 
               position: fixed !important; 
               left: 0 !important; 
               top: 0 !important; 
               margin: 0 !important;
-              width: ${paperWidth}mm !important;
+              width: 48mm !important;
+              max-width: 48mm !important;
               padding: 0 !important;
               padding-left: ${leftMargin}mm !important;
               border: none !important;
               font-size: 12px;
               box-sizing: border-box;
+              overflow: hidden !important;
             }
-            @page { size: ${paperWidth}mm auto; margin: 0; }
+            @page { size: 48mm 1200mm; margin: 0; }
           }
         `}</style>
       </div>
